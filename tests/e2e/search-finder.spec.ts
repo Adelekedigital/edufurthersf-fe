@@ -8,6 +8,7 @@ const taxonomies = {
   degrees: [{ code: 'masters', label: "Master's" }, { code: 'doctorate', label: 'PhD' }],
   fields: [{ code: 'health_and_welfare', label: 'Health and welfare' }],
   award_types: [{ code: 'scholarship', label: 'Scholarship' }],
+  funding_types: [{ code: 'fully_funded', label: 'Fully funded' }],
 }
 
 async function mockApi(page: Page, body: object, status = 200, headers: Record<string, string> = {}) {
@@ -33,7 +34,7 @@ test('validates required fields and preserves the form', async ({ page }) => {
 })
 
 test('renders results and unsupported destination warnings', async ({ page }) => {
-  await mockApi(page, { data: [{ scholarship_id: 'sch-1', cycle_id: 'cycle-1', name: 'Future Health Award', provider: 'Edufurther Foundation', award_type: 'scholarship', destinations: ['CA'], status: 'open_verified', status_detail: 'open', fit: 'confirmed', official_url: 'https://example.com/award', last_verified_at: '2026-08-01T00:00:00Z' }], next_cursor: null, meta: { warnings: ['no_verified_coverage:FR'] } })
+  await mockApi(page, { data: [{ scholarship_id: 'sch-1', cycle_id: 'cycle-1', name: 'Future Health Award', provider: 'Edufurther Foundation', award_type: 'scholarship', destinations: ['CA'], status: 'open_verified', status_detail: 'open', fit: 'confirmed', official_url: 'https://example.com/award', last_verified_at: '2026-08-01T00:00:00Z', provider_country: 'NG', funding_type: 'fully_funded', degree_levels: ['masters'], deadline_at: '2026-12-31T00:00:00Z', deadline_precision: 'date' }], next_cursor: null, meta: { warnings: ['no_verified_coverage:FR'] } })
   await page.goto('/')
   await page.getByRole('combobox', { name: 'Search for your country of origin' }).fill('Niger')
   await page.getByRole('option', { name: 'Nigeria' }).click()
@@ -41,6 +42,9 @@ test('renders results and unsupported destination warnings', async ({ page }) =>
   await page.getByRole('checkbox', { name: 'Canada' }).check()
   await page.getByRole('button', { name: /find (my )?scholarships/i }).click()
   await expect(page.getByRole('heading', { name: /future health award/i })).toBeVisible()
+  await expect(page.getByText(/Edufurther Foundation - Nigeria/i)).toBeVisible()
+  await expect(page.getByText('Fully funded')).toBeVisible()
+  await expect(page.getByText('By December 31, 2026')).toBeVisible()
   await expect(page.getByText(/verified coverage for FR/i)).toBeVisible()
 })
 
