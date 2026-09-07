@@ -112,3 +112,31 @@ test('loads scholarship detail and separates personalized guidance from eligibil
   await expect(page.getByRole('heading', { name: 'Eligibility note' })).toBeVisible()
   await expect(page.getByText('Applicants must meet the official nationality requirements.', { exact: true })).toBeVisible()
 })
+
+test('persists results by search ID and falls back to the backend after cache expiry', async ({ page }) => {
+  let postCount = 0
+  let replayCount = 0
+  const response = { data: [], next_cursor: null, meta: { search_id: 'search-1', response_id: 'response-1', warnings: [] }, filters: { origin_country: 'NG', target_countries: ['CA'], program_level: 'masters', limit: 20 } }
+  await page.route('**/api/v1/taxonomies', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(taxonomies) }))
+  await page.route('**/api/v1/search', (route) => { postCount += 1; return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(response) }) })
+  await page.route('**/api/v1/search/search-1', (route) => { replayCount += 1; return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(response) }) })
+  await page.goto('/')
+  await page.getByRole('combobox', { name: 'Search for your country of origin' }).fill('Niger')
+  await page.getByRole('option', { name: 'Nigeria' }).click()
+  await page.getByRole('radio', { name: "Master's degree (MSc)" }).last().check()
+  await page.getByRole('checkbox', { name: 'Canada' }).check()
+  await page.getByRole('button', { name: /find (my )?scholarships/i }).click()
+  await expect.poll(() => postCount).toBe(1)
+  await expect(page).toHaveURL(/\/search\/search-1$/)
+  await expect(page.getByRole('heading', { name: /find a match yet/i })).toBeVisible()
+  await page.evaluate(() => {
+    const key = 'edufurther:search-response:search-1'
+    const cached = JSON.parse(sessionStorage.getItem(key) ?? '{}')
+    cached.cachedAt = 0
+    sessionStorage.setItem(key, JSON.stringify(cached))
+  })
+  await page.reload()
+  await expect(page.getByRole('heading', { name: /find a match yet/i })).toBeVisible()
+  expect(postCount).toBe(1)
+  expect(replayCount).toBe(1)
+})

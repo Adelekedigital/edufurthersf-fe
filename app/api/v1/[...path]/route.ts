@@ -6,7 +6,7 @@ const allowedRoutes = new Set(['taxonomies', 'search'])
 
 function isAllowedRoute(path: string[]) {
   return (path.length === 1 && allowedRoutes.has(path[0])) ||
-    (path.length === 2 && path[0] === 'scholarships' && Boolean(path[1]))
+    (path.length === 2 && ['scholarships', 'search'].includes(path[0]) && Boolean(path[1]))
 }
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {

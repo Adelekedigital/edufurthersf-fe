@@ -4,6 +4,7 @@ import type { MatchProfile, Option, Scholarship, ScholarshipDetail } from '../..
 import { NewsletterSignup } from './NewsletterSignup'
 
 const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+const modalCachePrefix = 'edufurther:modal:'
 
 function label(options: Option[], code: string | null | undefined) {
   if (!code) return null
@@ -23,7 +24,24 @@ function formatDeadline(result: Scholarship) {
   return date ? (result.deadline_precision === 'datetime' ? date : 'By ' + date) : 'No fixed deadline'
 }
 
-export function ScholarshipDetailsModal({ result, countries, degrees, fundingTypes, matchProfile, onClose }: { result: Scholarship; countries: Option[]; degrees: Option[]; fundingTypes: Option[]; matchProfile: MatchProfile; onClose: () => void }) {
+type ModalCache = { detail: ScholarshipDetail; matchExplanation: string | null; explanationUnavailable: boolean }
+
+function readModalCache(searchId: string | undefined, scholarshipId: string) {
+  if (!searchId || typeof window === 'undefined') return null
+  try {
+    const value = JSON.parse(window.sessionStorage.getItem(modalCachePrefix + searchId + ':' + scholarshipId) ?? 'null') as ModalCache | null
+    return value?.detail ? value : null
+  } catch {
+    return null
+  }
+}
+
+function writeModalCache(searchId: string | undefined, scholarshipId: string, value: ModalCache) {
+  if (!searchId || typeof window === 'undefined') return
+  try { window.sessionStorage.setItem(modalCachePrefix + searchId + ':' + scholarshipId, JSON.stringify(value)) } catch { /* Storage may be unavailable. */ }
+}
+
+export function ScholarshipDetailsModal({ result, countries, degrees, fundingTypes, matchProfile, searchId, onClose }: { result: Scholarship; countries: Option[]; degrees: Option[]; fundingTypes: Option[]; matchProfile: MatchProfile; searchId?: string; onClose: () => void }) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const [detail, setDetail] = useState<ScholarshipDetail | null>(null)
   const [matchExplanation, setMatchExplanation] = useState<string | null>(null)
@@ -45,15 +63,32 @@ export function ScholarshipDetailsModal({ result, countries, degrees, fundingTyp
 
   useEffect(() => {
     let active = true
+    const cached = readModalCache(searchId, result.scholarship_id)
+    if (cached) {
+      queueMicrotask(() => {
+        if (!active) return
+        setDetail(cached.detail)
+        setMatchExplanation(cached.matchExplanation)
+        setExplanationUnavailable(cached.explanationUnavailable)
+        setExplanationLoading(false)
+      })
+      return () => { active = false }
+    }
     Promise.allSettled([getScholarshipDetail(result.scholarship_id), getMatchExplanation(result.scholarship_id, matchProfile)]).then(([detailResponse, explanationResponse]) => {
       if (!active) return
-      if (detailResponse.status === 'fulfilled') setDetail(detailResponse.value)
-      if (explanationResponse.status === 'fulfilled') setMatchExplanation(explanationResponse.value.match_explanation ?? null)
-      else setExplanationUnavailable(true)
+      const nextDetail = detailResponse.status === 'fulfilled' ? detailResponse.value : result
+      const nextExplanation = explanationResponse.status === 'fulfilled' ? explanationResponse.value.match_explanation ?? null : null
+      const nextUnavailable = explanationResponse.status === 'rejected'
+      setDetail(detailResponse.status === 'fulfilled' ? detailResponse.value : null)
+      setMatchExplanation(nextExplanation)
+      setExplanationUnavailable(nextUnavailable)
       setExplanationLoading(false)
+      writeModalCache(searchId, result.scholarship_id, { detail: nextDetail, matchExplanation: nextExplanation, explanationUnavailable: nextUnavailable })
     })
     return () => { active = false }
-  }, [matchProfile, result.scholarship_id])
+  // Depend on stable profile fields and the search key so rerenders do not refetch the same modal.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matchProfile.field, matchProfile.origin_country, matchProfile.program_level, result.scholarship_id, searchId])
 
   return <dialog className="details-modal" ref={dialogRef} aria-labelledby="details-modal-title" onCancel={(event) => { event.preventDefault(); onClose() }}>
     <div className="details-modal-inner">

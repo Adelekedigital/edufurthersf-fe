@@ -26,13 +26,16 @@ function formatStatus(status: Scholarship['status_detail']) {
   return status.replaceAll('_', ' ')
 }
 
-export function ScholarshipCard({ result, destinations, countries, degrees, fundingTypes, matchProfile }: { result: Scholarship; destinations: Option[]; countries: Option[]; degrees: Option[]; fundingTypes: Option[]; matchProfile: MatchProfile }) {
+export function ScholarshipCard({ result, destinations, countries, degrees, fundingTypes, matchProfile, searchId, detailsOpen: controlledDetailsOpen, onDetailsOpen, onDetailsClose }: { result: Scholarship; destinations: Option[]; countries: Option[]; degrees: Option[]; fundingTypes: Option[]; matchProfile: MatchProfile; searchId?: string; detailsOpen?: boolean; onDetailsOpen?: (identifier: string) => void; onDetailsClose?: () => void }) {
   const [detailsOpen, setDetailsOpen] = useState(false)
   const destination = result.destinations.map((code) => label(destinations, code) ?? code).join(', ') || 'Destination unavailable'
   const providerCountry = label(countries, result.provider_country) ?? result.provider_country
   const degree = (result.degree_levels ?? []).map((code) => label(degrees, code) ?? code).join(', ') || 'Not specified'
   const funding = label(fundingTypes, result.funding_type) ?? result.funding_type ?? 'Not specified'
   const reopen = result.expected_reopen_month ? 'Likely reopens ' + monthNames[result.expected_reopen_month] : null
+  const isDetailsOpen = controlledDetailsOpen ?? detailsOpen
+  const openDetails = () => { onDetailsOpen ? onDetailsOpen(result.scholarship_id) : setDetailsOpen(true) }
+  const closeDetails = () => { onDetailsClose ? onDetailsClose() : setDetailsOpen(false) }
   const eligibilityNote = typeof result.eligibility_note === 'string' && result.eligibility_note.trim() ? result.eligibility_note : 'Eligibility information is not available for this opportunity yet.'
 
   return <article className="result-card has-eligibility">
@@ -46,7 +49,7 @@ export function ScholarshipCard({ result, destinations, countries, degrees, fund
       <div><span>Deadline</span><strong>{reopen ?? formatDeadline(result)}</strong></div>
     </div>
     <p className="eligibility"><strong>Eligibility note:</strong> {eligibilityNote}</p>
-    <div className="result-footer"><span>Last verified: {formatDate(result.last_verified_at) ?? 'Not verified'}</span><button className="official-link details-link" type="button" onClick={() => setDetailsOpen(true)}>View details <span aria-hidden="true">→</span></button></div>
-    {detailsOpen && <ScholarshipDetailsModal result={result} countries={countries} degrees={degrees} fundingTypes={fundingTypes} matchProfile={matchProfile} onClose={() => setDetailsOpen(false)} />}
+    <div className="result-footer"><span>Last verified: {formatDate(result.last_verified_at) ?? 'Not verified'}</span><button className="official-link details-link" type="button" onClick={openDetails}>View details <span aria-hidden="true">&rarr;</span></button></div>
+    {isDetailsOpen && <ScholarshipDetailsModal result={result} countries={countries} degrees={degrees} fundingTypes={fundingTypes} matchProfile={matchProfile} searchId={searchId} onClose={closeDetails} />}
   </article>
 }

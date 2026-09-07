@@ -3,6 +3,8 @@ import type { ApiError, MatchProfile, SearchInput, SearchResponse, ScholarshipDe
 const baseUrl = '/api/v1'
 const taxonomyCacheKey = 'edufurther:taxonomies:v1'
 const taxonomyCacheTtl = 60 * 60 * 1000
+const searchCachePrefix = 'edufurther:search-response:'
+const searchCacheTtl = 5 * 60 * 1000
 let taxonomyRequest: Promise<Taxonomies> | null = null
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -78,7 +80,30 @@ export const getTaxonomies = async () => {
   return taxonomyRequest
 }
 
+function readCachedSearch(searchId: string) {
+  if (typeof window === 'undefined') return null
+  try {
+    const cached = JSON.parse(window.sessionStorage.getItem(searchCachePrefix + searchId) ?? 'null') as { cachedAt?: number; data?: unknown } | null
+    if (cached?.cachedAt && Date.now() - cached.cachedAt < searchCacheTtl && cached.data) return parseSearchResponse(cached.data)
+  } catch {
+    window.sessionStorage.removeItem(searchCachePrefix + searchId)
+  }
+  return null
+}
+
+export const cacheSearchResponse = (searchId: string, response: SearchResponse) => {
+  if (typeof window === 'undefined') return
+  try { window.sessionStorage.setItem(searchCachePrefix + searchId, JSON.stringify({ cachedAt: Date.now(), data: response })) } catch { /* Storage may be unavailable. */ }
+}
+
 export const searchScholarships = async (input: SearchInput) => parseSearchResponse(await request<unknown>('/search', { method: 'POST', body: JSON.stringify(input), cache: 'no-store' }))
+export const getSavedSearch = async (searchId: string) => {
+  const cached = readCachedSearch(searchId)
+  if (cached) return cached
+  const response = parseSearchResponse(await request<unknown>('/search/' + encodeURIComponent(searchId), { cache: 'no-store' }))
+  cacheSearchResponse(searchId, response)
+  return response
+}
 
 export const getScholarshipDetail = async (identifier: string) => parseScholarshipDetail(await request<unknown>('/scholarships/' + encodeURIComponent(identifier), { cache: 'no-store' }))
 

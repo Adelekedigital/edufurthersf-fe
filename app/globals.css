@@ -125,3 +125,6 @@
 .result-list{align-items:stretch}.result-card{height:100%}
 
 .step-dot{flex:0 0 20px;width:20px;height:20px;aspect-ratio:1 / 1}
+
+/* Keep every result footer below flexible eligibility content and aligned across each grid row. */
+.result-card{display:flex;flex-direction:column;height:100%}.result-card .result-footer{margin-top:auto!important;padding-top:var(--space-6);border-top:1px solid #edf0f2}.result-card .eligibility{flex:0 0 auto}
