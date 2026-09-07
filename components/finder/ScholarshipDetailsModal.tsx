@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { getMatchExplanation, getScholarshipDetail } from '../../app/api'
 import type { MatchProfile, Option, Scholarship, ScholarshipDetail } from '../../app/types'
+import { NewsletterSignup } from './NewsletterSignup'
 
 const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
@@ -62,6 +63,7 @@ export function ScholarshipDetailsModal({ result, countries, degrees, fundingTyp
       </header>
       {isReopening ? <>
         <section className="modal-preparation"><h3>How to prepare</h3><ul><li>Gather academic references and supporting documents.</li><li>Draft a focused research or study proposal.</li><li>Review the official provider requirements before the next cycle.</li></ul></section>
+        <NewsletterSignup compact />
         <div className="modal-callout"><p>This programme is not currently accepting applications. Check the official source for the next confirmed opening date.</p><a className="modal-primary" href={displayed.official_url} target="_blank" rel="noreferrer">View official scholarship <span aria-hidden="true">&rarr;</span></a></div>
       </> : <>
         <dl className="modal-facts">
