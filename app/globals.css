@@ -70,3 +70,9 @@
 .result-card .eligibility{margin-top:12px}
 @media (max-width:760px){.result-list{grid-template-columns:1fr}}
 @media (max-width:420px){.result-details{gap:12px 10px}.result-footer{align-items:flex-start;flex-direction:column;gap:8px}.result-footer .official-link{white-space:normal}}
+
+/* Centralized logo asset: update public/edufurther-logo.svg to change branding everywhere. */
+.brand{display:block;width:clamp(155px,20vw,245px);height:auto;line-height:0;color:transparent;font-size:0;letter-spacing:0}
+.brand img{display:block;width:100%;height:auto}
+@media (max-width:680px){.brand{width:clamp(145px,45vw,185px)}}
+@media (max-width:380px){.brand{width:clamp(135px,48vw,165px)}}
