@@ -1,0 +1,24 @@
+:root {
+  --color-brand-blue: #0b63f6;
+  --color-brand-blue-dark: #0052d6;
+  --color-brand-ink: #202124;
+  --color-brand-muted: #6d737b;
+  --color-brand-line: #dfe3e8;
+  --color-brand-surface: #ffffff;
+  --color-brand-page: #f7f8fa;
+  --color-brand-success: #087f5b;
+  --font-sans: 'DM Sans', Arial, sans-serif;
+  --font-display: 'Playfair Display', Georgia, serif;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --content-form: 492px;
+  --content-results: 930px;
+}

@@ -1,8 +1,39 @@
 import type { ApiError, SearchInput, SearchResponse, Taxonomies } from './types'
 
-// Keep browser requests same-origin. The Next.js route handler proxies them
-// to the backend, avoiding browser CORS restrictions.
 const baseUrl = '/api/v1'
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function isOption(value: unknown): boolean {
+  return isRecord(value) && typeof value.code === 'string' && typeof value.label === 'string'
+}
+
+function contractError(message: string): ApiError {
+  const error = new Error(message) as ApiError
+  error.code = 'INVALID_API_RESPONSE'
+  return error
+}
+
+function parseTaxonomies(value: unknown): Taxonomies {
+  if (!isRecord(value) || !['countries', 'destinations', 'degrees', 'fields', 'award_types', 'funding_types'].every((key) => Array.isArray(value[key]) && value[key].every(isOption))) {
+    throw contractError('The search options returned by the backend are incompatible with this version of the app.')
+  }
+  return value as unknown as Taxonomies
+}
+
+function parseSearchResponse(value: unknown): SearchResponse {
+  if (!isRecord(value) || !Array.isArray(value.data) || (value.next_cursor !== null && typeof value.next_cursor !== 'string')) {
+    throw contractError('The scholarship results returned by the backend are incompatible with this version of the app.')
+  }
+  for (const result of value.data) {
+    if (!isRecord(result) || typeof result.name !== 'string' || typeof result.provider !== 'string' || typeof result.official_url !== 'string' || !Array.isArray(result.destinations)) {
+      throw contractError('A scholarship result is missing fields required by the frontend.')
+    }
+  }
+  return value as unknown as SearchResponse
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${baseUrl}${path}`, { ...init, headers: { Accept: 'application/json', 'Content-Type': 'application/json', ...init?.headers } })
@@ -16,5 +47,5 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>
 }
 
-export const getTaxonomies = () => request<Taxonomies>('/taxonomies', { cache: 'no-store' })
-export const searchScholarships = (input: SearchInput) => request<SearchResponse>('/search', { method: 'POST', body: JSON.stringify(input), cache: 'no-store' })
+export const getTaxonomies = async () => parseTaxonomies(await request<unknown>('/taxonomies', { cache: 'no-store' }))
+export const searchScholarships = async (input: SearchInput) => parseSearchResponse(await request<unknown>('/search', { method: 'POST', body: JSON.stringify(input), cache: 'no-store' }))

@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "edufurther-scholarship-finder",
   "private": true,
   "version": "0.1.0",
@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "test:e2e:update": "playwright test --update-snapshots",
-    "review": "node scripts/review-page.mjs"
+    "review": "node scripts/review-page.mjs",
+    "api:check": "node scripts/check-api-contract.mjs"
   },
   "dependencies": {
     "next": "16.3.4",
