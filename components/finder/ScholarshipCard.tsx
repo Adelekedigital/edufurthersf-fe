@@ -1,4 +1,6 @@
+﻿import { useState } from 'react'
 import type { Option, Scholarship } from '../../app/types'
+import { ScholarshipDetailsModal } from './ScholarshipDetailsModal'
 
 const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
@@ -25,6 +27,7 @@ function formatStatus(status: Scholarship['status_detail']) {
 }
 
 export function ScholarshipCard({ result, destinations, countries, degrees, fundingTypes }: { result: Scholarship; destinations: Option[]; countries: Option[]; degrees: Option[]; fundingTypes: Option[] }) {
+  const [detailsOpen, setDetailsOpen] = useState(false)
   const destination = result.destinations.map((code) => label(destinations, code) ?? code).join(', ') || 'Destination unavailable'
   const providerCountry = label(countries, result.provider_country) ?? result.provider_country
   const degree = (result.degree_levels ?? []).map((code) => label(degrees, code) ?? code).join(', ') || 'Not specified'
@@ -42,6 +45,7 @@ export function ScholarshipCard({ result, destinations, countries, degrees, fund
       <div><span>Deadline</span><strong>{reopen ?? formatDeadline(result)}</strong></div>
     </div>
     {result.eligibility_note && <p className="eligibility"><strong>Eligibility note:</strong> {result.eligibility_note}</p>}
-    <div className="result-footer"><span>Last verified: {formatDate(result.last_verified_at) ?? 'Not verified'}</span><a className="official-link" href={result.official_url} target="_blank" rel="noreferrer">View official scholarship <span aria-hidden="true">&#8594;</span></a></div>
+    <div className="result-footer"><span>Last verified: {formatDate(result.last_verified_at) ?? 'Not verified'}</span><button className="official-link details-link" type="button" onClick={() => setDetailsOpen(true)}>View details <span aria-hidden="true">→</span></button></div>
+    {detailsOpen && <ScholarshipDetailsModal result={result} countries={countries} degrees={degrees} fundingTypes={fundingTypes} onClose={() => setDetailsOpen(false)} />}
   </article>
 }
