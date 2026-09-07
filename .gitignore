@@ -5,3 +5,6 @@ tsconfig.tsbuildinfo
 artifacts/
 playwright-report/
 test-results/
+
+# Sentry Config File
+.env.sentry-build-plugin
