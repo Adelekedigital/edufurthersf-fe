@@ -29,13 +29,14 @@ test('validates required fields and preserves the form', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('button', { name: /find (my )?scholarships/i }).click()
   await expect(page.getByText('Select your country of origin.')).toBeVisible()
-  await expect(page.getByRole('combobox').first()).toHaveValue('')
+  await expect(page.getByRole('combobox', { name: 'Search for your country of origin' })).toHaveValue('')
 })
 
 test('renders results and unsupported destination warnings', async ({ page }) => {
   await mockApi(page, { data: [{ scholarship_id: 'sch-1', cycle_id: 'cycle-1', name: 'Future Health Award', provider: 'Edufurther Foundation', award_type: 'scholarship', status: 'open_verified', status_detail: 'open', fit: 'confirmed', official_url: 'https://example.com/award', last_verified_at: '2026-08-01T00:00:00Z' }], next_cursor: null, meta: { warnings: ['no_verified_coverage:FR'] } })
   await page.goto('/')
-  await page.getByRole('combobox').nth(0).selectOption('NG')
+  await page.getByRole('combobox', { name: 'Search for your country of origin' }).fill('Niger')
+  await page.getByRole('option', { name: 'Nigeria' }).click()
   await page.getByRole('radio', { name: "Master's degree (MSc)" }).last().check()
   await page.getByRole('checkbox', { name: 'Canada' }).check()
   await page.getByRole('button', { name: /find (my )?scholarships/i }).click()
@@ -46,7 +47,8 @@ test('renders results and unsupported destination warnings', async ({ page }) =>
 test('shows retry guidance for rate limits', async ({ page }) => {
   await mockApi(page, { detail: 'Search rate limit exceeded', code: 'RATE_LIMIT_EXCEEDED' }, 429, { 'Retry-After': '60' })
   await page.goto('/')
-  await page.getByRole('combobox').nth(0).selectOption('NG')
+  await page.getByRole('combobox', { name: 'Search for your country of origin' }).fill('Niger')
+  await page.getByRole('option', { name: 'Nigeria' }).click()
   await page.getByRole('radio', { name: "Master's degree (MSc)" }).last().check()
   await page.getByRole('checkbox', { name: 'Canada' }).check()
   await page.getByRole('button', { name: /find (my )?scholarships/i }).click()
