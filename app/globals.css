@@ -113,7 +113,7 @@
 .country-selection{display:inline-flex;align-items:center;gap:var(--space-2);border:1px solid var(--color-brand-blue);border-radius:var(--radius-md);background:#eef5ff;color:var(--color-brand-blue);font-size:13px;padding:6px 8px}
 .country-selection button{border:0;background:transparent;color:inherit;cursor:pointer;font-size:16px;line-height:1;padding:0}
 .details-link{border:0;background:transparent;padding:0;cursor:pointer;text-align:right}
-.details-modal{width:min(664px,calc(100vw - 32px));max-height:calc(100vh - 32px);padding:0;border:1px solid #dfe3e8;border-radius:4px;color:var(--ink);box-shadow:0 18px 60px #192b3d33}
+.details-modal{width:min(664px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:auto;margin:auto;padding:0;border:1px solid #dfe3e8;border-radius:4px;color:var(--ink);box-shadow:0 18px 60px #192b3d33}
 .details-modal::backdrop{background:#192b3d66}
 .details-modal-inner{padding:32px}
 .details-modal-header{display:flex;justify-content:space-between;gap:20px;border-bottom:1px solid #edf0f2;padding-bottom:18px}
@@ -128,3 +128,5 @@
 
 /* Keep every result footer below flexible eligibility content and aligned across each grid row. */
 .result-card{display:flex;flex-direction:column;height:100%}.result-card .result-footer{margin-top:auto!important;padding-top:var(--space-6);border-top:1px solid #edf0f2}.result-card .eligibility{flex:0 0 auto}
+
+.search-loading,.route-loading{width:min(100%,650px);margin:0 auto;background:#fff;border:1px solid #e5e8eb;border-radius:8px;padding:48px 32px;text-align:center;box-shadow:0 1px 4px #192b3d0d}.search-loading h2,.route-loading h1{font-size:clamp(20px,2.2vw,28px);font-weight:500;margin:18px 0 8px}.search-loading p,.route-loading p{color:var(--muted);font-size:14px;margin:0}.loading-spinner{width:28px;height:28px;margin:0 auto;border:3px solid #d8e6ff;border-top-color:var(--blue);border-radius:50%;animation:edufurther-spin .8s linear infinite}.loading-skeleton{display:grid;gap:10px;margin-top:30px;text-align:left}.loading-skeleton i{display:block;height:12px;border-radius:6px;background:linear-gradient(90deg,#edf1f5 25%,#f8fafc 50%,#edf1f5 75%);background-size:200% 100%;animation:edufurther-shimmer 1.4s ease-in-out infinite}.loading-skeleton i:nth-child(2){width:82%}.loading-skeleton i:nth-child(3){width:64%}@keyframes edufurther-spin{to{transform:rotate(360deg)}}@keyframes edufurther-shimmer{to{background-position:-200% 0}}@media(max-width:680px){.search-loading,.route-loading{padding:40px 20px}.search-loading h2,.route-loading h1{font-size:22px}}

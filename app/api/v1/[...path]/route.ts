@@ -25,6 +25,8 @@ async function proxy(request: NextRequest, params: Promise<{ path: string[] }>) 
   }
 
   const headers = new Headers({ Accept: request.headers.get('accept') ?? 'application/json' })
+  const cookie = request.headers.get('cookie')
+  if (cookie) headers.set('Cookie', cookie)
   if (request.method === 'POST') headers.set('Content-Type', request.headers.get('content-type') ?? 'application/json')
 
   const response = await fetch(`${backendBaseUrl}/${route}`, {
@@ -39,6 +41,9 @@ async function proxy(request: NextRequest, params: Promise<{ path: string[] }>) 
   const retryAfter = response.headers.get('retry-after')
   if (contentType) responseHeaders.set('Content-Type', contentType)
   if (retryAfter) responseHeaders.set('Retry-After', retryAfter)
+  const getSetCookie = (response.headers as Headers & { getSetCookie?: () => string[] }).getSetCookie
+  const setCookies = getSetCookie ? getSetCookie.call(response.headers) : (response.headers.get('set-cookie') ? [response.headers.get('set-cookie') as string] : [])
+  for (const setCookie of setCookies) responseHeaders.append('Set-Cookie', setCookie)
 
   return new NextResponse(response.body, { status: response.status, headers: responseHeaders })
 }

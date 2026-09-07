@@ -93,7 +93,7 @@ export function ScholarshipDetailsModal({ result, countries, degrees, fundingTyp
   return <dialog className="details-modal" ref={dialogRef} aria-labelledby="details-modal-title" onCancel={(event) => { event.preventDefault(); onClose() }}>
     <div className="details-modal-inner">
       <header className="details-modal-header">
-        <div><h2 id="details-modal-title">{displayed.name}</h2><p>{displayed.provider}{displayed.provider_country ? ' &middot; ' + (label(countries, displayed.provider_country) ?? displayed.provider_country) : ''}</p></div>
+        <div><h2 id="details-modal-title">{displayed.name}</h2><p>{displayed.provider}{displayed.provider_country ? ' \u00b7 ' + (label(countries, displayed.provider_country) ?? displayed.provider_country) : ''}</p></div>
         <button className="modal-close" type="button" aria-label="Close scholarship details" onClick={onClose}>&times;</button>
       </header>
       {isReopening ? <>
