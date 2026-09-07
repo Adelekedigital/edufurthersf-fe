@@ -41,7 +41,7 @@ export function ScholarshipCard({ result, destinations, countries, degrees, fund
       <div><span>Study destination</span><strong>{destination}</strong></div>
       <div><span>Deadline</span><strong>{reopen ?? formatDeadline(result)}</strong></div>
     </div>
-    <div className="result-footer"><span>Last verified: {formatDate(result.last_verified_at) ?? 'Not verified'}</span><a className="official-link" href={result.official_url} target="_blank" rel="noreferrer">View official scholarship <span aria-hidden="true">&#8594;</span></a></div>
     {result.eligibility_note && <p className="eligibility"><strong>Eligibility note:</strong> {result.eligibility_note}</p>}
+    <div className="result-footer"><span>Last verified: {formatDate(result.last_verified_at) ?? 'Not verified'}</span><a className="official-link" href={result.official_url} target="_blank" rel="noreferrer">View official scholarship <span aria-hidden="true">&#8594;</span></a></div>
   </article>
 }
