@@ -33,7 +33,7 @@ test('validates required fields and preserves the form', async ({ page }) => {
 })
 
 test('renders results and unsupported destination warnings', async ({ page }) => {
-  await mockApi(page, { data: [{ scholarship_id: 'sch-1', cycle_id: 'cycle-1', name: 'Future Health Award', provider: 'Edufurther Foundation', award_type: 'scholarship', status: 'open_verified', status_detail: 'open', fit: 'confirmed', official_url: 'https://example.com/award', last_verified_at: '2026-08-01T00:00:00Z' }], next_cursor: null, meta: { warnings: ['no_verified_coverage:FR'] } })
+  await mockApi(page, { data: [{ scholarship_id: 'sch-1', cycle_id: 'cycle-1', name: 'Future Health Award', provider: 'Edufurther Foundation', award_type: 'scholarship', destinations: ['CA'], status: 'open_verified', status_detail: 'open', fit: 'confirmed', official_url: 'https://example.com/award', last_verified_at: '2026-08-01T00:00:00Z' }], next_cursor: null, meta: { warnings: ['no_verified_coverage:FR'] } })
   await page.goto('/')
   await page.getByRole('combobox', { name: 'Search for your country of origin' }).fill('Niger')
   await page.getByRole('option', { name: 'Nigeria' }).click()
