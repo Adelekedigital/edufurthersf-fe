@@ -33,8 +33,9 @@ export function ScholarshipCard({ result, destinations, countries, degrees, fund
   const degree = (result.degree_levels ?? []).map((code) => label(degrees, code) ?? code).join(', ') || 'Not specified'
   const funding = label(fundingTypes, result.funding_type) ?? result.funding_type ?? 'Not specified'
   const reopen = result.expected_reopen_month ? 'Likely reopens ' + monthNames[result.expected_reopen_month] : null
+  const eligibilityNote = typeof result.eligibility_note === 'string' && result.eligibility_note.trim() ? result.eligibility_note : 'Eligibility information is not available for this opportunity yet.'
 
-  return <article className={'result-card' + (result.eligibility_note ? ' has-eligibility' : '')}>
+  return <article className="result-card has-eligibility">
     <div className={'result-top'}><span className={'status status-' + result.status_detail}>{formatStatus(result.status_detail)}</span><span className={'fit fit-' + result.fit}>{result.fit === 'confirmed' ? 'Matches your criteria' : 'Possible match'}</span></div>
     <h3>{result.name}</h3>
     <p className="provider">{result.provider}{providerCountry ? ' - ' + providerCountry : ''}</p>
@@ -44,7 +45,7 @@ export function ScholarshipCard({ result, destinations, countries, degrees, fund
       <div><span>Study destination</span><strong>{destination}</strong></div>
       <div><span>Deadline</span><strong>{reopen ?? formatDeadline(result)}</strong></div>
     </div>
-    {result.eligibility_note && <p className="eligibility"><strong>Eligibility note:</strong> {result.eligibility_note}</p>}
+    <p className="eligibility"><strong>Eligibility note:</strong> {eligibilityNote}</p>
     <div className="result-footer"><span>Last verified: {formatDate(result.last_verified_at) ?? 'Not verified'}</span><button className="official-link details-link" type="button" onClick={() => setDetailsOpen(true)}>View details <span aria-hidden="true">→</span></button></div>
     {detailsOpen && <ScholarshipDetailsModal result={result} countries={countries} degrees={degrees} fundingTypes={fundingTypes} matchProfile={matchProfile} onClose={() => setDetailsOpen(false)} />}
   </article>

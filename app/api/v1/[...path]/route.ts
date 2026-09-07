@@ -4,6 +4,11 @@ const backendBaseUrl = process.env.EDUFURTHER_API_BASE_URL ?? process.env.NEXT_P
 
 const allowedRoutes = new Set(['taxonomies', 'search'])
 
+function isAllowedRoute(path: string[]) {
+  return (path.length === 1 && allowedRoutes.has(path[0])) ||
+    (path.length === 2 && path[0] === 'scholarships' && Boolean(path[1]))
+}
+
 export async function GET(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
   return proxy(request, params)
 }
@@ -15,7 +20,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 async function proxy(request: NextRequest, params: Promise<{ path: string[] }>) {
   const { path } = await params
   const route = path.join('/')
-  if (path.length !== 1 || !allowedRoutes.has(route)) {
+  if (!isAllowedRoute(path)) {
     return NextResponse.json({ detail: 'Route not found.' }, { status: 404 })
   }
 

@@ -33,6 +33,7 @@ export function ScholarshipDetailsModal({ result, countries, degrees, fundingTyp
   const destination = displayed.destinations.map((code) => label(countries, code) ?? code).join(', ') || 'Destination unavailable'
   const degree = (displayed.degree_levels ?? []).map((code) => label(degrees, code) ?? code).join(', ') || 'Not specified'
   const funding = label(fundingTypes, displayed.funding_type) ?? displayed.funding_type ?? 'Not specified'
+  const eligibilityNote = typeof displayed.eligibility_note === 'string' && displayed.eligibility_note.trim() ? displayed.eligibility_note : 'Eligibility information is not available for this opportunity yet.'
 
   useEffect(() => {
     const dialog = dialogRef.current
@@ -71,7 +72,7 @@ export function ScholarshipDetailsModal({ result, countries, degrees, fundingTyp
           <div><dt>Deadline</dt><dd>{formatDeadline(displayed)}</dd></div>
         </dl>
         <section className="modal-explanation" aria-live="polite"><h3>Why this may fit</h3>{explanationLoading ? <p>Checking this opportunity against your answers...</p> : matchExplanation ? <p>{matchExplanation}</p> : <p>{explanationUnavailable ? 'Personalized guidance is unavailable right now.' : 'Personalized guidance is not available for this opportunity yet.'}</p>}</section>
-        {(displayed.eligibility_note || displayed.caveats?.length) && <section className="modal-eligibility"><h3>Eligibility note</h3>{displayed.eligibility_note && <p>{displayed.eligibility_note}</p>}{displayed.caveats?.map((caveat) => <p key={caveat}>{caveat}</p>)}</section>}
+        <section className="modal-eligibility"><h3>Eligibility note</h3><p>{eligibilityNote}</p>{displayed.caveats?.map((caveat) => <p key={caveat}>{caveat}</p>)}</section>
         <div className="modal-callout"><p>Review the official source for the complete eligibility criteria, required documents and application instructions.</p><a className="modal-primary" href={displayed.official_url} target="_blank" rel="noreferrer">Go to official application <span aria-hidden="true">&rarr;</span></a></div>
       </>}
     </div>
