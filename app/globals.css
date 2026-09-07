@@ -104,3 +104,5 @@
   .result-list{gap:clamp(10px,1.6vw,16px)}
   .result-card{padding:clamp(12px,1.8vw,16px)}
 }
+
+.country-options button.active{background:#eef5ff;color:#0868f8}

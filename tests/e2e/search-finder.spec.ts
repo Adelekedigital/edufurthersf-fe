@@ -3,7 +3,7 @@ import AxeBuilder from '@axe-core/playwright'
 
 const taxonomies = {
   version: 'taxonomy-v1',
-  countries: [{ code: 'NG', label: 'Nigeria' }],
+  countries: [{ code: 'NG', label: 'Nigeria' }, { code: 'GH', label: 'Ghana' }],
   destinations: [{ code: 'CA', label: 'Canada' }, { code: 'FR', label: 'France' }],
   degrees: [{ code: 'masters', label: "Master's" }, { code: 'doctorate', label: 'PhD' }],
   fields: [{ code: 'health_and_welfare', label: 'Health and welfare' }],
@@ -57,4 +57,40 @@ test('shows retry guidance for rate limits', async ({ page }) => {
   await page.getByRole('checkbox', { name: 'Canada' }).check()
   await page.getByRole('button', { name: /find (my )?scholarships/i }).click()
   await expect(page.locator('.form-alert.is-error[role="alert"]')).toContainText(/try again in 60 seconds/i)
+})
+
+test('opens and closes the country list and supports arrow navigation', async ({ page }) => {
+  await mockApi(page, { data: [], next_cursor: null, meta: {} })
+  await page.goto('/')
+  const country = page.getByRole('combobox', { name: 'Search for your country of origin' })
+  const options = page.locator('#search-for-your-country-of-origin-options')
+  await expect(options).toBeHidden()
+  await country.click()
+  await expect(options).toBeVisible()
+  await country.click()
+  await expect(options).toBeHidden()
+  await country.click()
+  await country.press('ArrowDown')
+  await expect(country).toHaveAttribute('aria-activedescendant', /-NG$/)
+  await country.press('Enter')
+  await expect(country).toHaveValue('Nigeria')
+  await expect(options).toBeHidden()
+})
+
+test('includes an active Somewhere else country in target_countries', async ({ page }) => {
+  let requestBody: Record<string, unknown> | undefined
+  await page.route('**/api/v1/taxonomies', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(taxonomies) }))
+  await page.route('**/api/v1/search', (route) => {
+    requestBody = route.request().postDataJSON() as Record<string, unknown>
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], next_cursor: null, meta: {} }) })
+  })
+  await page.goto('/')
+  await page.getByRole('combobox', { name: 'Search for your country of origin' }).click()
+  await page.getByRole('option', { name: 'Nigeria' }).click()
+  await page.getByText('Somewhere else', { exact: true }).click()
+  await page.getByRole('combobox', { name: 'Search for another destination country' }).click()
+  await page.getByRole('option', { name: 'Ghana' }).click()
+  await page.getByRole('radio', { name: "Master's degree (MSc)" }).last().check()
+  await page.getByRole('button', { name: /find (my )?scholarships/i }).click()
+  await expect.poll(() => requestBody?.target_countries).toEqual(['GH'])
 })

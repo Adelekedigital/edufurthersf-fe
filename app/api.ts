@@ -1,6 +1,9 @@
 import type { ApiError, SearchInput, SearchResponse, Taxonomies } from './types'
 
 const baseUrl = '/api/v1'
+const taxonomyCacheKey = 'edufurther:taxonomies:v1'
+const taxonomyCacheTtl = 60 * 60 * 1000
+let taxonomyRequest: Promise<Taxonomies> | null = null
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
@@ -47,5 +50,26 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>
 }
 
-export const getTaxonomies = async () => parseTaxonomies(await request<unknown>('/taxonomies', { cache: 'no-store' }))
+function readCachedTaxonomies() {
+  if (typeof window === 'undefined') return null
+  try {
+    const cached = JSON.parse(window.localStorage.getItem(taxonomyCacheKey) ?? 'null') as { cachedAt?: number; data?: unknown } | null
+    if (cached?.cachedAt && Date.now() - cached.cachedAt < taxonomyCacheTtl && cached.data) return parseTaxonomies(cached.data)
+  } catch {
+    window.localStorage.removeItem(taxonomyCacheKey)
+  }
+  return null
+}
+
+export const getTaxonomies = async () => {
+  if (taxonomyRequest) return taxonomyRequest
+  const cached = readCachedTaxonomies()
+  if (cached) return cached
+  taxonomyRequest = request<unknown>('/taxonomies', { cache: 'no-store' }).then(parseTaxonomies).then((data) => {
+    if (typeof window !== 'undefined') window.localStorage.setItem(taxonomyCacheKey, JSON.stringify({ cachedAt: Date.now(), data }))
+    return data
+  }).finally(() => { taxonomyRequest = null })
+  return taxonomyRequest
+}
+
 export const searchScholarships = async (input: SearchInput) => parseSearchResponse(await request<unknown>('/search', { method: 'POST', body: JSON.stringify(input), cache: 'no-store' }))
