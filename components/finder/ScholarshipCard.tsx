@@ -31,7 +31,7 @@ export function ScholarshipCard({ result, destinations, countries, degrees, fund
   const funding = label(fundingTypes, result.funding_type) ?? result.funding_type ?? 'Not specified'
   const reopen = result.expected_reopen_month ? 'Likely reopens ' + monthNames[result.expected_reopen_month] : null
 
-  return <article className="result-card">
+  return <article className={'result-card' + (result.eligibility_note ? ' has-eligibility' : '')}>
     <div className={'result-top'}><span className={'status status-' + result.status_detail}>{formatStatus(result.status_detail)}</span><span className={'fit fit-' + result.fit}>{result.fit === 'confirmed' ? 'Matches your criteria' : 'Possible match'}</span></div>
     <h3>{result.name}</h3>
     <p className="provider">{result.provider}{providerCountry ? ' - ' + providerCountry : ''}</p>

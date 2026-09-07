@@ -7,6 +7,15 @@
   --color-brand-surface: #ffffff;
   --color-brand-page: #f7f8fa;
   --color-brand-success: #087f5b;
+  /* Compatibility aliases for the legacy stylesheet while it is migrated. */
+  --blue: var(--color-brand-blue);
+  --blue-dark: var(--color-brand-blue-dark);
+  --ink: var(--color-brand-ink);
+  --muted: var(--color-brand-muted);
+  --line: var(--color-brand-line);
+  --surface: var(--color-brand-surface);
+  --page: var(--color-brand-page);
+  --green: var(--color-brand-success);
   --font-sans: 'DM Sans', Arial, sans-serif;
   --font-display: 'Playfair Display', Georgia, serif;
   --space-1: 4px;

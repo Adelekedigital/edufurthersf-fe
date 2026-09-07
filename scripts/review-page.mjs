@@ -1,4 +1,4 @@
-﻿import { chromium } from '@playwright/test'
+import { chromium } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
 import { mkdir, writeFile } from 'node:fs/promises'
 
@@ -22,7 +22,8 @@ for (const viewport of [{ name: 'narrow', width: 320, height: 800 }, { name: 'mo
     const detail = `${viewport.name}: ${request.url()} — ${request.failure()?.errorText ?? 'failed'}`
     ;(isExpectedExternal(request.url()) ? report.blockedExternalRequests : report.failedRequests).push(detail)
   })
-  await page.goto(url, { waitUntil: 'networkidle' })
+  await page.goto(url, { waitUntil: 'domcontentloaded' })
+  await page.waitForTimeout(1000)
   const metrics = await page.evaluate(() => ({
     horizontalOverflow: document.documentElement.scrollWidth > window.innerWidth,
     overflowingElements: Array.from(document.querySelectorAll('*')).filter((element) => { const box = element.getBoundingClientRect(); return box.right > window.innerWidth + 1 || box.left < -1 }).slice(0, 10).map((element) => ({ tag: element.tagName, className: element.className, right: Math.round(element.getBoundingClientRect().right), left: Math.round(element.getBoundingClientRect().left) })),

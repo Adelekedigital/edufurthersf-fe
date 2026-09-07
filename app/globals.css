@@ -68,7 +68,7 @@
 .result-details strong{font-size:clamp(10px,1vw,12px);font-weight:500;line-height:1.35;overflow-wrap:anywhere}
 .result-footer{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin-top:auto}
 .result-footer .official-link{margin-top:0;white-space:nowrap}
-.result-card .eligibility{margin-top:12px}
+.result-card .eligibility{margin:var(--space-3) 0 0}.result-card.has-eligibility .result-footer{margin-top:var(--space-6)}
 @media (max-width:760px){.result-list{grid-template-columns:1fr}}
 @media (max-width:420px){.result-details{gap:12px 10px}.result-footer{align-items:flex-start;flex-direction:column;gap:8px}.result-footer .official-link{white-space:normal}}
 
