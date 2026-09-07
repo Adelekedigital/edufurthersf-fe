@@ -1,4 +1,4 @@
-import type { ApiError, SearchInput, SearchResponse, Taxonomies } from './types'
+import type { ApiError, MatchProfile, SearchInput, SearchResponse, ScholarshipDetail, Taxonomies } from './types'
 
 const baseUrl = '/api/v1'
 const taxonomyCacheKey = 'edufurther:taxonomies:v1'
@@ -38,6 +38,12 @@ function parseSearchResponse(value: unknown): SearchResponse {
   return value as unknown as SearchResponse
 }
 
+function parseScholarshipDetail(value: unknown): ScholarshipDetail {
+  if (!isRecord(value) || typeof value.name !== 'string' || typeof value.provider !== 'string' || typeof value.official_url !== 'string' || !Array.isArray(value.destinations)) {
+    throw contractError('The scholarship detail returned by the backend is incompatible with this version of the app.')
+  }
+  return value as unknown as ScholarshipDetail
+}
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${baseUrl}${path}`, { ...init, headers: { Accept: 'application/json', 'Content-Type': 'application/json', ...init?.headers } })
   if (!response.ok) {
@@ -73,3 +79,7 @@ export const getTaxonomies = async () => {
 }
 
 export const searchScholarships = async (input: SearchInput) => parseSearchResponse(await request<unknown>('/search', { method: 'POST', body: JSON.stringify(input), cache: 'no-store' }))
+
+export const getScholarshipDetail = async (identifier: string) => parseScholarshipDetail(await request<unknown>('/scholarships/' + encodeURIComponent(identifier), { cache: 'no-store' }))
+
+export const getMatchExplanation = async (identifier: string, profile: MatchProfile) => parseScholarshipDetail(await request<unknown>('/scholarships/' + encodeURIComponent(identifier), { method: 'POST', body: JSON.stringify(profile), cache: 'no-store' }))

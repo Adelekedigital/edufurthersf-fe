@@ -107,8 +107,8 @@
 
 .country-options button.active{background:#eef5ff;color:#0868f8}
 
-/* Content-sized result rows prevent a long eligibility note from stretching its neighbor. */
-.result-list{align-items:start}
+
+
 .country-selections{display:flex;flex-wrap:wrap;gap:var(--space-2);margin-top:var(--space-3)}
 .country-selection{display:inline-flex;align-items:center;gap:var(--space-2);border:1px solid var(--color-brand-blue);border-radius:var(--radius-md);background:#eef5ff;color:var(--color-brand-blue);font-size:13px;padding:6px 8px}
 .country-selection button{border:0;background:transparent;color:inherit;cursor:pointer;font-size:16px;line-height:1;padding:0}
@@ -119,3 +119,7 @@
 .details-modal-header{display:flex;justify-content:space-between;gap:20px;border-bottom:1px solid #edf0f2;padding-bottom:18px}
 .details-modal-header h2{font-size:18px;line-height:1.2;margin:0 0 5px}.details-modal-header p{color:#5b7089;font-size:15px;margin:0}.modal-close{width:30px;height:30px;border:1px solid #dfe3e8;border-radius:50%;background:#fff;font-size:23px;line-height:1;cursor:pointer}.modal-facts{margin:20px 0 0}.modal-facts div{display:grid;grid-template-columns:150px 1fr;gap:18px;margin:0 0 16px;font-size:15px}.modal-facts dt{color:#72777d}.modal-facts dd{margin:0;text-align:right}.modal-preparation h3{font-size:16px;margin:20px 0 8px}.modal-preparation ul{color:#6d737b;line-height:1.7;margin:0;padding-left:24px}.modal-callout{background:#f5f6f7;border:1px solid #dfe3e8;border-radius:5px;margin-top:24px;padding:16px}.modal-callout p{color:#6d737b;font-size:13px;line-height:1.6;margin:0 0 16px}.modal-primary{display:flex;align-items:center;justify-content:center;gap:12px;background:var(--blue);color:#fff;border-radius:7px;padding:13px 16px;font-size:15px;font-weight:700}.modal-primary:hover{background:var(--blue-dark)}
 @media (max-width:680px){.details-modal-inner{padding:22px 16px}.details-modal-header h2{font-size:16px}.details-modal-header p{font-size:13px}.modal-facts div{grid-template-columns:1fr;gap:4px;font-size:14px}.modal-facts dd{text-align:left}.modal-callout{margin-top:20px}}
+
+.modal-explanation,.modal-eligibility{margin-top:22px;padding-top:18px;border-top:1px solid #edf0f2}.modal-explanation h3,.modal-eligibility h3{font-size:15px;margin:0 0 8px}.modal-explanation p,.modal-eligibility p{color:#6d737b;font-size:13px;line-height:1.55;margin:0 0 6px}.newsletter-signup{display:flex;align-items:center;justify-content:space-between;gap:28px;margin-top:32px;padding:24px;border:1px solid #dfe3e8;border-radius:5px;background:#f5f6f7}.newsletter-copy{min-width:0}.newsletter-copy h2{font-size:18px;margin:0 0 7px}.newsletter-copy p:not(.form-kicker){color:#6d737b;font-size:13px;line-height:1.5;margin:0}.substack-embed{width:360px;min-height:160px;border:0;background:#fff}.newsletter-unavailable{max-width:360px;color:#6d737b;font-size:13px;line-height:1.5;margin:0}.newsletter-signup .form-kicker{margin-bottom:8px}@media (max-width:680px){.newsletter-signup{display:block;padding:20px 16px}.substack-embed{width:100%;margin-top:18px}.newsletter-unavailable{margin-top:18px}}
+/* Equal-height desktop rows keep metadata and actions aligned; mobile remains content-sized. */
+.result-list{align-items:stretch}.result-card{height:100%}

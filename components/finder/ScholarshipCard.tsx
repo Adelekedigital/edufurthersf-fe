@@ -1,5 +1,5 @@
-﻿import { useState } from 'react'
-import type { Option, Scholarship } from '../../app/types'
+import { useState } from 'react'
+import type { MatchProfile, Option, Scholarship } from '../../app/types'
 import { ScholarshipDetailsModal } from './ScholarshipDetailsModal'
 
 const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
@@ -26,7 +26,7 @@ function formatStatus(status: Scholarship['status_detail']) {
   return status.replaceAll('_', ' ')
 }
 
-export function ScholarshipCard({ result, destinations, countries, degrees, fundingTypes }: { result: Scholarship; destinations: Option[]; countries: Option[]; degrees: Option[]; fundingTypes: Option[] }) {
+export function ScholarshipCard({ result, destinations, countries, degrees, fundingTypes, matchProfile }: { result: Scholarship; destinations: Option[]; countries: Option[]; degrees: Option[]; fundingTypes: Option[]; matchProfile: MatchProfile }) {
   const [detailsOpen, setDetailsOpen] = useState(false)
   const destination = result.destinations.map((code) => label(destinations, code) ?? code).join(', ') || 'Destination unavailable'
   const providerCountry = label(countries, result.provider_country) ?? result.provider_country
@@ -46,6 +46,6 @@ export function ScholarshipCard({ result, destinations, countries, degrees, fund
     </div>
     {result.eligibility_note && <p className="eligibility"><strong>Eligibility note:</strong> {result.eligibility_note}</p>}
     <div className="result-footer"><span>Last verified: {formatDate(result.last_verified_at) ?? 'Not verified'}</span><button className="official-link details-link" type="button" onClick={() => setDetailsOpen(true)}>View details <span aria-hidden="true">→</span></button></div>
-    {detailsOpen && <ScholarshipDetailsModal result={result} countries={countries} degrees={degrees} fundingTypes={fundingTypes} onClose={() => setDetailsOpen(false)} />}
+    {detailsOpen && <ScholarshipDetailsModal result={result} countries={countries} degrees={degrees} fundingTypes={fundingTypes} matchProfile={matchProfile} onClose={() => setDetailsOpen(false)} />}
   </article>
 }

@@ -1,4 +1,4 @@
-﻿# Edufurther Scholarship Finder frontend
+# Edufurther Scholarship Finder frontend
 
 Next.js frontend for the Edufurther Scholarship Finder. The app collects an anonymous search profile, requests taxonomies and scholarship matches from the Finder API, and lets a user review each result before opening the provider's official application page.
 
@@ -15,15 +15,16 @@ The local proxy uses `/api/v1` and forwards to `NEXT_PUBLIC_API_BASE_URL` (or th
 ## Implemented V1 surface
 
 - Responsive Finder form with taxonomy-backed origin and destination country search.
-- Multiple destination selection, including searchable “Somewhere else” countries.
+- Multiple destination selection, including searchable â€œSomewhere elseâ€ countries.
 - Cached taxonomies in the browser for one hour.
 - Search results with status, fit, provider, destination, funding, degree, deadline, eligibility note and verification date.
 - Responsive scholarship cards with keyboard-accessible detail dialogs.
 - Detail dialog for active/uncertain scholarships and preparation guidance for likely-to-reopen opportunities.
 - Official provider links remain the primary application action.
 - Backend response validation so incompatible taxonomy or search payloads fail visibly instead of silently rendering bad data.
+- Substack signup embed configured through `NEXT_PUBLIC_SUBSTACK_EMBED_URL`; Substack owns subscriber collection and welcome-email PDF delivery.
 
-The current `/search` contract does not provide every field shown in the design references. The detail dialog therefore displays `Not specified` or a review instruction when duration, selection criteria, or other narrative fields are absent. Those values should come from a versioned backend response before being added to the UI.
+The `/search` contract provides factual match data but not `match_explanation`. When a user opens a result, the frontend requests the scholarship detail endpoint and posts the search profile for personalized explanation. `match_explanation` is shown under â€œWhy this may fitâ€; `eligibility_note` and `caveats` remain separate source-backed guidance. If the backend explanation feature is disabled or unavailable, the modal shows a truthful fallback. The detail dialog still displays `Not specified` when duration, selection criteria, or other narrative fields are absent.
 
 ## Explicit V1 boundaries and hand-offs
 
@@ -32,12 +33,11 @@ The following are intentionally not implemented in this frontend release:
 - WhatsApp subscription or WhatsApp notifications.
 - Scholarship-alert subscriptions and deadline reminders.
 - Core/product hand-off or account creation. No search preferences are transferred to another product yet.
-- A Substack signup embed and email-capture flow.
-- An in-app claim that a newsletter subscription or guide delivery succeeded.
 
-The product documentation says the intended newsletter path is a supported Substack embed plus a Substack welcome email containing the Scholarship Prep Guide link. When this is implemented, the Substack publication owner must configure the welcome email and a stable PDF URL, while the frontend must embed the supported form without reading the iframe email or calling undocumented subscription endpoints. The guide should also remain independently downloadable. Subscription success should only be reported from a supported provider signal, not from an iframe submission alone.
 
-Future work should add these integrations behind versioned contracts: Substack embed/welcome-email QA, a separate alert/reminder preference flow, WhatsApp consent and delivery, and an explicit Core hand-off with retry/expiry handling. Until then, the UI must not imply that any of those actions have completed.
+The V1 newsletter path is a supported Substack embed configured with `NEXT_PUBLIC_SUBSTACK_EMBED_URL`. Substack owns subscriber collection, the welcome email, and the Scholarship Prep Guide PDF link. The frontend does not provide a direct PDF download, read iframe email data, call undocumented subscription endpoints, or claim subscription success from iframe interaction alone. The publication owner must configure and test the welcome email in Substack.
+
+Future work should add a separate alert/reminder preference flow, WhatsApp consent and delivery, and an explicit Core hand-off with retry/expiry handling. Until then, the UI must not imply that any of those actions have completed.
 
 ## Sentry configuration
 
@@ -75,7 +75,7 @@ npm run build
 $env:CI='1'; npm run test:e2e
 ```
 
-The E2E suite covers desktop and mobile form/search flows, country keyboard navigation, multiple “Somewhere else” destinations, validation and API failure states. Production Sentry ingestion still requires a Production deployment with the variables above; local builds intentionally do not upload source maps or send telemetry.
+The E2E suite covers desktop and mobile form/search flows, country keyboard navigation, multiple â€œSomewhere elseâ€ destinations, validation and API failure states. Production Sentry ingestion still requires a Production deployment with the variables above; local builds intentionally do not upload source maps or send telemetry.
 
 ## Related product reference
 
