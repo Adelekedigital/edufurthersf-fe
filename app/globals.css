@@ -106,3 +106,9 @@
 }
 
 .country-options button.active{background:#eef5ff;color:#0868f8}
+
+/* Content-sized result rows prevent a long eligibility note from stretching its neighbor. */
+.result-list{align-items:start}
+.country-selections{display:flex;flex-wrap:wrap;gap:var(--space-2);margin-top:var(--space-3)}
+.country-selection{display:inline-flex;align-items:center;gap:var(--space-2);border:1px solid var(--color-brand-blue);border-radius:var(--radius-md);background:#eef5ff;color:var(--color-brand-blue);font-size:13px;padding:6px 8px}
+.country-selection button{border:0;background:transparent;color:inherit;cursor:pointer;font-size:16px;line-height:1;padding:0}
