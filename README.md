@@ -15,7 +15,7 @@ The local proxy uses `/api/v1` and forwards to `NEXT_PUBLIC_API_BASE_URL` (or th
 ## Implemented V1 surface
 
 - Responsive Finder form with taxonomy-backed origin and destination country search.
-- Multiple destination selection, including searchable â€œSomewhere elseâ€ countries.
+- Multiple destination selection, including searchable “Somewhere else” countries.
 - Cached taxonomies in the browser for one hour.
 - Search results with status, fit, provider, destination, funding, degree, deadline, eligibility note and verification date.
 - Responsive scholarship cards with keyboard-accessible detail dialogs.
@@ -24,7 +24,7 @@ The local proxy uses `/api/v1` and forwards to `NEXT_PUBLIC_API_BASE_URL` (or th
 - Backend response validation so incompatible taxonomy or search payloads fail visibly instead of silently rendering bad data.
 - Substack signup embed configured through `NEXT_PUBLIC_SUBSTACK_EMBED_URL`; Substack owns subscriber collection and welcome-email PDF delivery.
 
-The `/search` contract provides factual match data but not `match_explanation`. When a user opens a result, the frontend requests the scholarship detail endpoint and posts the search profile for personalized explanation. `match_explanation` is shown under â€œWhy this may fitâ€; `eligibility_note` and `caveats` remain separate source-backed guidance. If the backend explanation feature is disabled or unavailable, the modal shows a truthful fallback. The detail dialog still displays `Not specified` when duration, selection criteria, or other narrative fields are absent.
+The `/search` contract provides factual match data but not `match_explanation`. When a user opens a result, the frontend requests the scholarship detail endpoint and posts the search profile for personalized explanation. `match_explanation` is shown under “Why this may fit”; `eligibility_note` and `caveats` remain separate source-backed guidance. If the backend explanation feature is disabled or unavailable, the modal shows a truthful fallback. The detail dialog still displays `Not specified` when duration, selection criteria, or other narrative fields are absent.
 
 ## Explicit V1 boundaries and hand-offs
 
@@ -75,8 +75,9 @@ npm run build
 $env:CI='1'; npm run test:e2e
 ```
 
-The E2E suite covers desktop and mobile form/search flows, country keyboard navigation, multiple â€œSomewhere elseâ€ destinations, validation and API failure states. Production Sentry ingestion still requires a Production deployment with the variables above; local builds intentionally do not upload source maps or send telemetry.
+The E2E suite covers desktop and mobile form/search flows, country keyboard navigation, multiple “Somewhere else” destinations, validation and API failure states. Production Sentry ingestion still requires a Production deployment with the variables above; local builds intentionally do not upload source maps or send telemetry.
 
 ## Related product reference
 
 The broader product decisions and integration boundaries are in the local Scholarship Finder documentation pack at `C:\Users\adele\.codex\.chatgpt-projects\g-p-6764b5de85d08191ae98d53045ed5a51\docs\scholarship-finder\README.md`. It records the Substack welcome-email decision, anonymous V1 access, the non-goals for WhatsApp and hand-offs, and the requirement that official-provider access remain primary.
+

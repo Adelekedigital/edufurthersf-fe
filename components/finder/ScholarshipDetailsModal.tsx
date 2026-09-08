@@ -94,12 +94,12 @@ export function ScholarshipDetailsModal({ result, countries, degrees, fundingTyp
     <div className="details-modal-inner">
       <header className="details-modal-header">
         <div><h2 id="details-modal-title">{displayed.name}</h2><p>{displayed.provider}{displayed.provider_country ? ' \u00b7 ' + (label(countries, displayed.provider_country) ?? displayed.provider_country) : ''}</p></div>
-        <button className="modal-close" type="button" aria-label="Close scholarship details" onClick={onClose}>&times;</button>
+        <button className="modal-close" type="button" aria-label="Close scholarship details" onClick={onClose}>{'\u00d7'}</button>
       </header>
       {isReopening ? <>
         <section className="modal-preparation"><h3>How to prepare</h3><ul><li>Gather academic references and supporting documents.</li><li>Draft a focused research or study proposal.</li><li>Review the official provider requirements before the next cycle.</li></ul></section>
         <NewsletterSignup compact />
-        <div className="modal-callout"><p>This programme is not currently accepting applications. Check the official source for the next confirmed opening date.</p><a className="modal-primary" href={displayed.official_url} target="_blank" rel="noreferrer">View official scholarship <span aria-hidden="true">&rarr;</span></a></div>
+        <div className="modal-callout"><p>This programme is not currently accepting applications. Check the official source for the next confirmed opening date.</p><a className="modal-primary" href={displayed.official_url} target="_blank" rel="noreferrer">View official scholarship <span aria-hidden="true">{'\u2192'}</span></a></div>
       </> : <>
         <dl className="modal-facts">
           <div><dt>Field</dt><dd>{displayed.field_names?.join(', ') || 'Not specified'}</dd></div>
@@ -110,7 +110,7 @@ export function ScholarshipDetailsModal({ result, countries, degrees, fundingTyp
         </dl>
         <section className="modal-explanation" aria-live="polite"><h3>Why this may fit</h3>{explanationLoading ? <p>Checking this opportunity against your answers...</p> : matchExplanation ? <p>{matchExplanation}</p> : <p>{explanationUnavailable ? 'Personalized guidance is unavailable right now.' : 'Personalized guidance is not available for this opportunity yet.'}</p>}</section>
         <section className="modal-eligibility"><h3>Eligibility note</h3><p>{eligibilityNote}</p>{displayed.caveats?.map((caveat) => <p key={caveat}>{caveat}</p>)}</section>
-        <div className="modal-callout"><p>Review the official source for the complete eligibility criteria, required documents and application instructions.</p><a className="modal-primary" href={displayed.official_url} target="_blank" rel="noreferrer">Go to official application <span aria-hidden="true">&rarr;</span></a></div>
+        <div className="modal-callout"><p>Review the official source for the complete eligibility criteria, required documents and application instructions.</p><a className="modal-primary" href={displayed.official_url} target="_blank" rel="noreferrer">Go to official application <span aria-hidden="true">{'\u2192'}</span></a></div>
       </>}
     </div>
   </dialog>

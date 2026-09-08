@@ -1,9 +1,13 @@
-﻿import { defineConfig, devices } from '@playwright/test'
+import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
-  workers: process.env.CI ? 2 : undefined,
+  // Every worker shares a single dev-server process (see webServer below). Uncapped local
+  // parallelism spawns enough concurrent browser contexts to overwhelm that one Turbopack
+  // server's on-demand route compilation, producing intermittent navigation timeouts and
+  // truncated reporter output that have nothing to do with the app itself.
+  workers: 2,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   reporter: [['list'], ['html', { outputFolder: 'artifacts/playwright-report', open: 'never' }]],
