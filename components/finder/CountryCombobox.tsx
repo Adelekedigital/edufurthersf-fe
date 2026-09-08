@@ -50,7 +50,7 @@ export function CountryCombobox({ options, value, onChange, ariaLabel, ariaInval
         if (event.key === 'ArrowDown') return current < filtered.length - 1 ? current + 1 : 0
         return current > 0 ? current - 1 : filtered.length - 1
       })
-    } else if (event.key === 'Enter' && open && activeIndex >= 0) {
+    } else if (event.key === 'Enter' && open && activeIndex >= 0 && filtered[activeIndex]) {
       event.preventDefault()
       select(filtered[activeIndex].code)
     } else if (event.key === 'Escape') {
@@ -66,5 +66,14 @@ export function CountryCombobox({ options, value, onChange, ariaLabel, ariaInval
   }, [activeIndex, open])
 
   const optionId = `${ariaLabel.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-options`
-  return <div className="country-combobox" ref={rootRef}><input role="combobox" value={query} onChange={(event) => { const nextQuery = event.target.value; setQuery(nextQuery); if (clearValueOnSearch && nextQuery !== selectedLabel) onChange(''); setOpen(true); setActiveIndex(0) }} onClick={() => setOpen((current) => !current)} onKeyDown={handleKeyDown} placeholder="Search for a country" aria-label={ariaLabel} aria-invalid={ariaInvalid} aria-expanded={open} aria-controls={optionId} aria-activedescendant={open && activeIndex >= 0 ? `${optionId}-${filtered[activeIndex].code}` : undefined} autoComplete="off" />{open && <div className="country-options" id={optionId} role="listbox" ref={listRef}>{filtered.map((option, index) => <button type="button" role="option" id={`${optionId}-${option.code}`} aria-selected={value === option.code} className={index === activeIndex ? 'active' : ''} key={option.code} onClick={() => select(option.code)}>{option.label}</button>)}{filtered.length === 0 && <span className="country-empty">No country found</span>}</div>}</div>
+  return <div className="country-combobox" ref={rootRef}><input role="combobox" value={query} onChange={(event) => {
+    const nextQuery = event.target.value
+    setQuery(nextQuery)
+    if (clearValueOnSearch && nextQuery !== selectedLabel) onChange('')
+    setOpen(true)
+    // Excluded/already-selected countries can make the new query match nothing, so recompute
+    // the filtered count here instead of assuming index 0 exists (it previously crashed on read).
+    const nextFilteredCount = options.filter((option) => !excluded.has(option.code) && option.label.toLowerCase().includes(nextQuery.toLowerCase())).length
+    setActiveIndex(nextFilteredCount ? 0 : -1)
+  }} onClick={() => setOpen((current) => !current)} onKeyDown={handleKeyDown} placeholder="Search for a country" aria-label={ariaLabel} aria-invalid={ariaInvalid} aria-expanded={open} aria-controls={optionId} aria-activedescendant={open && activeIndex >= 0 && filtered[activeIndex] ? `${optionId}-${filtered[activeIndex].code}` : undefined} autoComplete="off" />{open && <div className="country-options" id={optionId} role="listbox" ref={listRef}>{filtered.map((option, index) => <button type="button" role="option" id={`${optionId}-${option.code}`} aria-selected={value === option.code} className={index === activeIndex ? 'active' : ''} key={option.code} onClick={() => select(option.code)}>{option.label}</button>)}{filtered.length === 0 && <span className="country-empty">No country found</span>}</div>}</div>
 }

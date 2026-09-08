@@ -193,6 +193,38 @@ test('preserves multiple Somewhere else countries when refining a saved search',
   await expect(page.getByRole('radio', { name: "Master's degree (MSc)" }).last()).toBeChecked()
 })
 
+test('excludes a country already selected as a primary destination from the Somewhere else picker without crashing', async ({ page }) => {
+  const overlappingTaxonomies = { ...taxonomies, countries: [...taxonomies.countries, { code: 'CA', label: 'Canada' }] }
+  await page.route('**/api/v1/taxonomies', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(overlappingTaxonomies) }))
+  await page.route('**/api/v1/search', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], next_cursor: null, meta: {} }) }))
+  await page.goto('/')
+  await page.getByRole('checkbox', { name: 'Canada' }).check()
+  await page.getByText('Somewhere else', { exact: true }).click()
+  const otherCountryBox = page.getByRole('combobox', { name: 'Search for another destination country' })
+  await otherCountryBox.click()
+  await expect(page.getByRole('option', { name: 'Canada' })).toHaveCount(0)
+  await otherCountryBox.fill('Canada')
+  // Typing a query that matches only an already-excluded country used to crash the whole app
+  // (activeIndex pointed at an empty filtered list). Confirm the app is still alive and correctly
+  // shows no matches, rather than a Next.js client-side-exception error page.
+  await expect(page.getByText('No country found')).toBeVisible()
+  await expect(page.getByText(/application error/i)).toHaveCount(0)
+  await expect(page.getByRole('checkbox', { name: 'Canada' })).toBeChecked()
+})
+
+test('removes a Somewhere else country once it is also checked as a primary destination', async ({ page }) => {
+  const overlappingTaxonomies = { ...taxonomies, countries: [...taxonomies.countries, { code: 'CA', label: 'Canada' }] }
+  await page.route('**/api/v1/taxonomies', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(overlappingTaxonomies) }))
+  await page.route('**/api/v1/search', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], next_cursor: null, meta: {} }) }))
+  await page.goto('/')
+  await page.getByText('Somewhere else', { exact: true }).click()
+  await page.getByRole('combobox', { name: 'Search for another destination country' }).click()
+  await page.getByRole('option', { name: 'Canada' }).click()
+  await expect(page.locator('.country-selection', { hasText: 'Canada' })).toBeVisible()
+  await page.getByRole('checkbox', { name: 'Canada' }).check()
+  await expect(page.locator('.country-selection', { hasText: 'Canada' })).toHaveCount(0)
+})
+
 test('shows scholarship card data immediately while detail and explanation requests are delayed', async ({ page }) => {
   const result = makeScholarship('sch-delay', { eligibility_note: 'Applicants must meet the official nationality requirements.' })
   await page.route('**/api/v1/taxonomies', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(taxonomies) }))
@@ -214,25 +246,31 @@ test('shows scholarship card data immediately while detail and explanation reque
   await expect(page.getByText('This opportunity matches your selected study level and destination.')).toBeVisible()
 })
 
-test('supports modal deep link, refresh, and correct browser back after closing', async ({ page }) => {
+test('supports modal deep link and refresh', async ({ page }) => {
+  const result = makeScholarship('sch-deep', { eligibility_note: 'Applicants must meet the official nationality requirements.' })
+  const searchResponse = { data: [result], next_cursor: null, meta: { search_id: 'search-deep', response_id: 'response-deep', warnings: [] } }
+  await page.route('**/api/v1/taxonomies', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(taxonomies) }))
+  await page.route('**/api/v1/search/search-deep', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(searchResponse) }))
+  await page.route('**/api/v1/scholarships/sch-deep', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(result) }))
+
+  await page.goto('/search/search-deep?scholarship=sch-deep')
+  await expect(page.getByRole('dialog').getByRole('heading', { name: 'Award sch-deep' })).toBeVisible()
+  await page.reload()
+  await expect(page.getByRole('dialog').getByRole('heading', { name: 'Award sch-deep' })).toBeVisible()
+  await expect(page).toHaveURL(/\?scholarship=sch-deep$/)
+  await page.getByRole('button', { name: 'Close scholarship details' }).click()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(page).toHaveURL(/\/search\/search-deep$/)
+})
+
+test('supports browser back/forward around a click-opened modal, with a single history step on close', async ({ page }) => {
   const result = makeScholarship('sch-nav', { eligibility_note: 'Applicants must meet the official nationality requirements.' })
   const searchResponse = { data: [result], next_cursor: null, meta: { search_id: 'search-nav', response_id: 'response-nav', warnings: [] } }
   await page.route('**/api/v1/taxonomies', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(taxonomies) }))
   await page.route('**/api/v1/search', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(searchResponse) }))
-  await page.route('**/api/v1/search/search-nav', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(searchResponse) }))
   await page.route('**/api/v1/scholarships/sch-nav', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(result) }))
 
-  // Deep link directly into a result with the modal already open, and it survives a refresh.
-  await page.goto('/search/search-nav?scholarship=sch-nav')
-  await expect(page.getByRole('dialog').getByRole('heading', { name: 'Award sch-nav' })).toBeVisible()
-  await page.reload()
-  await expect(page.getByRole('dialog').getByRole('heading', { name: 'Award sch-nav' })).toBeVisible()
-  await expect(page).toHaveURL(/\?scholarship=sch-nav$/)
-  await page.getByRole('button', { name: 'Close scholarship details' }).click()
-  await expect(page.getByRole('dialog')).toHaveCount(0)
-  await expect(page).toHaveURL(/\/search\/search-nav$/)
-
-  // Fresh in-app flow: closing after a click-open should be a single "back" step, not a wasted duplicate history entry.
+  // Closing after a click-open should be a single "back" step, not a wasted duplicate history entry.
   await page.goto('/')
   await page.getByRole('combobox', { name: 'Search for your country of origin' }).fill('Niger')
   await page.getByRole('option', { name: 'Nigeria' }).click()

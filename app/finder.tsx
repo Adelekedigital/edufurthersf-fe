@@ -1,6 +1,6 @@
 'use client'
 
-/* eslint-disable react/no-unescaped-entities, react-hooks/set-state-in-effect */
+/* eslint-disable react/no-unescaped-entities */
 import { FormEvent, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { cacheSearchResponse, getSavedSearch, getTaxonomies, searchScholarships } from './api'
@@ -21,26 +21,23 @@ const label = (options: Option[], code: string) => options.find((item) => item.c
 const searchProfileKey = (searchId: string) => 'edufurther:search-profile:' + searchId
 const pendingDraftKey = 'edufurther:pending-refine-draft'
 
-function readSearchProfile(searchId: string) {
+function readSessionJSON<T>(key: string): T | null {
   if (typeof window === 'undefined') return null
-  try { return JSON.parse(window.sessionStorage.getItem(searchProfileKey(searchId)) ?? 'null') as SearchInput | null } catch { return null }
+  try { return JSON.parse(window.sessionStorage.getItem(key) ?? 'null') as T | null } catch { return null }
 }
-function writeSearchProfile(searchId: string, input: SearchInput) {
+function writeSessionJSON(key: string, value: unknown) {
   if (typeof window === 'undefined') return
-  try { window.sessionStorage.setItem(searchProfileKey(searchId), JSON.stringify({ ...input, cursor: undefined })) } catch { /* Storage may be unavailable. */ }
+  try { window.sessionStorage.setItem(key, JSON.stringify(value)) } catch { /* Storage may be unavailable. */ }
 }
-function readPendingDraft() {
-  if (typeof window === 'undefined') return null
-  try { return JSON.parse(window.sessionStorage.getItem(pendingDraftKey) ?? 'null') as FinderDraft | null } catch { return null }
-}
-function writePendingDraft(draft: FinderDraft) {
+function removeSessionItem(key: string) {
   if (typeof window === 'undefined') return
-  try { window.sessionStorage.setItem(pendingDraftKey, JSON.stringify(draft)) } catch { /* Storage may be unavailable. */ }
+  try { window.sessionStorage.removeItem(key) } catch { /* Storage may be unavailable. */ }
 }
-function clearPendingDraft() {
-  if (typeof window === 'undefined') return
-  try { window.sessionStorage.removeItem(pendingDraftKey) } catch { /* Storage may be unavailable. */ }
-}
+const readSearchProfile = (searchId: string) => readSessionJSON<SearchInput>(searchProfileKey(searchId))
+const writeSearchProfile = (searchId: string, input: SearchInput) => writeSessionJSON(searchProfileKey(searchId), { ...input, cursor: undefined })
+const readPendingDraft = () => readSessionJSON<FinderDraft>(pendingDraftKey)
+const writePendingDraft = (draft: FinderDraft) => writeSessionJSON(pendingDraftKey, draft)
+const clearPendingDraft = () => removeSessionItem(pendingDraftKey)
 function splitDestinations(taxonomies: Taxonomies, targetCountries: string[]) {
   const taxonomyCodes = new Set(taxonomies.destinations.map((item) => item.code))
   return {
@@ -54,6 +51,8 @@ export function Finder({ searchId, selectedScholarshipId }: { searchId?: string;
   const requestId = useRef(0)
   const lastSubmittedInput = useRef<SearchInput | null>(null)
   const modalOpenedFromResults = useRef(false)
+  const pendingNavigationRef = useRef<string | null>(null)
+  const [navigationTick, setNavigationTick] = useState(0)
   const [initialDraft] = useState<FinderDraft | null>(() => searchId ? null : readPendingDraft())
   const initialForm = initialDraft ? { origin: initialDraft.origin ?? '', destinations: initialDraft.destinations ?? [], field: initialDraft.field ?? '', degree: initialDraft.degree ?? '' } : emptyForm
   const [activeSearchId, setActiveSearchId] = useState(searchId ?? '')
@@ -101,11 +100,21 @@ export function Finder({ searchId, selectedScholarshipId }: { searchId?: string;
     return () => { requestId.current += 1 }
   }, [searchId, taxonomies])
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- syncs local modal state to the URL-derived prop (browser back/forward, deep links).
     setPendingModalId(selectedScholarshipId ?? null)
   }, [searchId, selectedScholarshipId])
+  useEffect(() => {
+    if (!pendingNavigationRef.current) return
+    const target = pendingNavigationRef.current
+    pendingNavigationRef.current = null
+    router.push(target)
+  }, [navigationTick, router])
 
   const update = (key: keyof FormState, value: string | string[]) => setForm((current) => ({ ...current, [key]: value }))
   const toggleDestination = (code: string) => update('destinations', form.destinations.includes(code) ? form.destinations.filter((item) => item !== code) : [...form.destinations, code])
+  // A country checked as a primary destination shouldn't also show as a "Somewhere else" chip; derive the
+  // visible list instead of mutating otherDestinations so unchecking the primary destination restores it.
+  const visibleOtherDestinations = otherDestinations.filter((code) => !form.destinations.includes(code))
   const toggleOtherDestination = () => { const next = !showOtherDestination; setShowOtherDestination(next); if (!next) setOtherDestinations([]) }
 
   async function submit(event: FormEvent, cursor?: string) {
@@ -149,7 +158,10 @@ export function Finder({ searchId, selectedScholarshipId }: { searchId?: string;
     if (!activeSearchId) return
     setPendingModalId(identifier)
     modalOpenedFromResults.current = true
-    window.setTimeout(() => router.push('/search/' + encodeURIComponent(activeSearchId) + '?scholarship=' + encodeURIComponent(identifier)), 0)
+    // Defer the URL sync to the next commit (via the effect above) so the modal has already
+    // rendered from local state before the route changes, instead of racing a bare timer.
+    pendingNavigationRef.current = '/search/' + encodeURIComponent(activeSearchId) + '?scholarship=' + encodeURIComponent(identifier)
+    setNavigationTick((tick) => tick + 1)
   }
   const closeDetails = () => {
     setPendingModalId(null)
@@ -169,7 +181,7 @@ export function Finder({ searchId, selectedScholarshipId }: { searchId?: string;
 
   const formPanel = <section className="form-panel" aria-labelledby="form-heading"><form onSubmit={submit} noValidate>
     <label className="form-question">Where are you from? {taxonomies && <CountryCombobox options={taxonomies.countries} value={form.origin} onChange={(code) => update('origin', code)} ariaLabel="Search for your country of origin" ariaInvalid={!!validation.origin} />}<small>Helps us identify scholarships you're eligible to apply for</small>{validation.origin && <em className="error-text">{validation.origin}</em>}</label>
-    <fieldset className="destination-control"><legend>Where do you want to study?</legend><div className="option-grid">{taxonomies?.destinations.map((item) => <label className={`option-chip ${form.destinations.includes(item.code) ? 'selected' : ''}`} key={item.code}><input type="checkbox" checked={form.destinations.includes(item.code)} onChange={() => toggleDestination(item.code)} />{item.label}</label>)}<label className={`option-chip ${!!taxonomies?.destinations.length && form.destinations.length === taxonomies.destinations.length ? 'selected' : ''}`}><input type="checkbox" checked={!!taxonomies?.destinations.length && form.destinations.length === taxonomies.destinations.length} onChange={(event) => update('destinations', event.target.checked ? (taxonomies?.destinations.map((item) => item.code) ?? []) : [])} />I'm open to any of these</label><div className={`option-chip ${showOtherDestination ? 'selected' : ''}`} role="checkbox" aria-checked={showOtherDestination} tabIndex={0} onPointerDown={(event) => { event.preventDefault(); toggleOtherDestination() }} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggleOtherDestination() } }}>Somewhere else</div></div>{showOtherDestination && taxonomies && <><div className="country-selections" aria-label="Selected alternate destination countries">{otherDestinations.map((code) => <span className="country-selection" key={code}>{label(taxonomies.countries, code)}<button type="button" aria-label={'Remove ' + label(taxonomies.countries, code)} onClick={() => setOtherDestinations((current) => current.filter((item) => item !== code))}>{'\u00d7'}</button></span>)}</div><CountryCombobox options={taxonomies.countries} value="" ariaLabel="Search for another destination country" clearOnSelect clearValueOnSearch={false} excludeCodes={otherDestinations} onChange={(code) => setOtherDestinations((current) => current.includes(code) ? current : [...current, code])} /></>}{validation.destinations && <em className="error-text">{validation.destinations}</em>}</fieldset>
+    <fieldset className="destination-control"><legend>Where do you want to study?</legend><div className="option-grid">{taxonomies?.destinations.map((item) => <label className={`option-chip ${form.destinations.includes(item.code) ? 'selected' : ''}`} key={item.code}><input type="checkbox" checked={form.destinations.includes(item.code)} onChange={() => toggleDestination(item.code)} />{item.label}</label>)}<label className={`option-chip ${!!taxonomies?.destinations.length && form.destinations.length === taxonomies.destinations.length ? 'selected' : ''}`}><input type="checkbox" checked={!!taxonomies?.destinations.length && form.destinations.length === taxonomies.destinations.length} onChange={(event) => update('destinations', event.target.checked ? (taxonomies?.destinations.map((item) => item.code) ?? []) : [])} />I'm open to any of these</label><div className={`option-chip ${showOtherDestination ? 'selected' : ''}`} role="checkbox" aria-checked={showOtherDestination} tabIndex={0} onPointerDown={(event) => { event.preventDefault(); toggleOtherDestination() }} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggleOtherDestination() } }}>Somewhere else</div></div>{showOtherDestination && taxonomies && <><div className="country-selections" aria-label="Selected alternate destination countries">{visibleOtherDestinations.map((code) => <span className="country-selection" key={code}>{label(taxonomies.countries, code)}<button type="button" aria-label={'Remove ' + label(taxonomies.countries, code)} onClick={() => setOtherDestinations((current) => current.filter((item) => item !== code))}>{'\u00d7'}</button></span>)}</div><CountryCombobox options={taxonomies.countries} value="" ariaLabel="Search for another destination country" clearOnSelect clearValueOnSearch={false} excludeCodes={[...otherDestinations, ...form.destinations]} onChange={(code) => setOtherDestinations((current) => current.includes(code) ? current : [...current, code])} /></>}{validation.destinations && <em className="error-text">{validation.destinations}</em>}</fieldset>
     <label className="form-question">What do you want to study? <select value={form.field} onChange={(event) => update('field', event.target.value)}><option value="">Select your field of study</option>{taxonomies?.fields.map((item) => <option value={item.code} key={item.code}>{item.label}</option>)}</select></label>
     <fieldset className="choice-control"><legend>What is your highest level of qualification?</legend><div className="option-grid"><label className="option-chip"><input type="radio" name="qualification" />HND</label><label className="option-chip"><input type="radio" name="qualification" />Bachelor's degree (BSc)</label><label className="option-chip"><input type="radio" name="qualification" />Master's degree (MSc)</label><label className="option-chip"><input type="radio" name="qualification" />Doctoral program (PhD)</label></div></fieldset>
     <fieldset className="choice-control"><legend>What are you applying for?</legend><div className="option-grid">{taxonomies?.degrees.map((item) => <label className={`option-chip ${form.degree === item.code ? 'selected' : ''}`} key={item.code}><input type="radio" name="degree" value={item.code} checked={form.degree === item.code} onChange={() => update('degree', item.code)} />{item.code === 'masters' ? "Master's degree (MSc)" : 'Doctoral program (PhD)'}</label>)}</div>{validation.degree && <em className="error-text">{validation.degree}</em>}</fieldset>
