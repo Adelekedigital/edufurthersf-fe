@@ -156,6 +156,7 @@ test('preserves all criteria when refining a saved search', async ({ page }) => 
   await page.getByRole('option', { name: 'Ghana' }).click()
   await page.getByRole('checkbox', { name: 'Canada' }).check()
   await page.getByRole('combobox', { name: 'What do you want to study?' }).selectOption('health_and_welfare')
+  await page.getByRole('radio', { name: "Bachelor's degree (BSc)" }).check()
   await page.getByRole('radio', { name: "Master's degree (MSc)" }).last().check()
   await page.getByRole('button', { name: /find (my )?scholarships/i }).click()
   await expect(page).toHaveURL(/\/search\/search-refine$/)
@@ -166,6 +167,7 @@ test('preserves all criteria when refining a saved search', async ({ page }) => 
   await expect(page.getByText('Somewhere else', { exact: true })).toHaveAttribute('aria-checked', 'true')
   await expect(page.locator('.country-selection', { hasText: 'Ghana' })).toBeVisible()
   await expect(page.getByRole('combobox', { name: 'What do you want to study?' })).toHaveValue('health_and_welfare')
+  await expect(page.getByRole('radio', { name: "Bachelor's degree (BSc)" })).toBeChecked()
   await expect(page.getByRole('radio', { name: "Master's degree (MSc)" }).last()).toBeChecked()
 })
 

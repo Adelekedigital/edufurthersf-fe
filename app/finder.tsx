@@ -13,12 +13,13 @@ import { CountryCombobox } from '../components/finder/CountryCombobox'
 import { PrimaryButton } from '../components/ui/PrimaryButton'
 import { NewsletterSignup } from '../components/finder/NewsletterSignup'
 
-type FormState = { origin: string; destinations: string[]; field: string; degree: string }
+type FormState = { origin: string; destinations: string[]; field: string; degree: string; qualification: string }
 type ViewState = 'form' | 'searching' | 'results' | 'error'
 type FinderDraft = FormState & { otherDestinations: string[]; showOtherDestination: boolean }
-const emptyForm: FormState = { origin: '', destinations: [], field: '', degree: '' }
+const emptyForm: FormState = { origin: '', destinations: [], field: '', degree: '', qualification: '' }
 const label = (options: Option[], code: string) => options.find((item) => item.code === code)?.label ?? code
 const searchProfileKey = (searchId: string) => 'edufurther:search-profile:' + searchId
+const qualificationKey = (searchId: string) => 'edufurther:qualification:' + searchId
 const pendingDraftKey = 'edufurther:pending-refine-draft'
 
 function readSessionJSON<T>(key: string): T | null {
@@ -35,6 +36,10 @@ function removeSessionItem(key: string) {
 }
 const readSearchProfile = (searchId: string) => readSessionJSON<SearchInput>(searchProfileKey(searchId))
 const writeSearchProfile = (searchId: string, input: SearchInput) => writeSessionJSON(searchProfileKey(searchId), { ...input, cursor: undefined })
+// Qualification isn't part of the backend's SearchInput contract, so it can't ride along with the
+// search profile above; it needs its own per-search cache to survive the '/' -> '/search/{id}' remount.
+const readQualification = (searchId: string) => readSessionJSON<string>(qualificationKey(searchId)) ?? ''
+const writeQualification = (searchId: string, value: string) => writeSessionJSON(qualificationKey(searchId), value)
 const readPendingDraft = () => readSessionJSON<FinderDraft>(pendingDraftKey)
 const writePendingDraft = (draft: FinderDraft) => writeSessionJSON(pendingDraftKey, draft)
 const clearPendingDraft = () => removeSessionItem(pendingDraftKey)
@@ -54,7 +59,7 @@ export function Finder({ searchId, selectedScholarshipId }: { searchId?: string;
   const pendingNavigationRef = useRef<string | null>(null)
   const [navigationTick, setNavigationTick] = useState(0)
   const [initialDraft] = useState<FinderDraft | null>(() => searchId ? null : readPendingDraft())
-  const initialForm = initialDraft ? { origin: initialDraft.origin ?? '', destinations: initialDraft.destinations ?? [], field: initialDraft.field ?? '', degree: initialDraft.degree ?? '' } : emptyForm
+  const initialForm = initialDraft ? { origin: initialDraft.origin ?? '', destinations: initialDraft.destinations ?? [], field: initialDraft.field ?? '', degree: initialDraft.degree ?? '', qualification: initialDraft.qualification ?? '' } : emptyForm
   const [activeSearchId, setActiveSearchId] = useState(searchId ?? '')
   const [taxonomies, setTaxonomies] = useState<Taxonomies | null>(null)
   const [taxonomyError, setTaxonomyError] = useState(false)
@@ -82,7 +87,7 @@ export function Finder({ searchId, selectedScholarshipId }: { searchId?: string;
       const filters = response.filters ?? readSearchProfile(searchId)
       if (filters) {
         const split = splitDestinations(taxonomies, filters.target_countries)
-        setForm({ origin: filters.origin_country, destinations: split.destinations, field: filters.field ?? '', degree: filters.program_level })
+        setForm({ origin: filters.origin_country, destinations: split.destinations, field: filters.field ?? '', degree: filters.program_level, qualification: readQualification(searchId) })
         setOtherDestinations(split.otherDestinations)
         setShowOtherDestination(split.otherDestinations.length > 0)
         lastSubmittedInput.current = filters
@@ -139,6 +144,7 @@ export function Finder({ searchId, selectedScholarshipId }: { searchId?: string;
       if (!cursor && returnedSearchId) {
         cacheSearchResponse(returnedSearchId, response)
         writeSearchProfile(returnedSearchId, input)
+        writeQualification(returnedSearchId, form.qualification)
         setActiveSearchId(returnedSearchId)
         router.push('/search/' + encodeURIComponent(returnedSearchId))
         return
@@ -173,7 +179,7 @@ export function Finder({ searchId, selectedScholarshipId }: { searchId?: string;
     const input = lastSubmittedInput.current ?? fallback
     const targetCountries = Array.from(new Set([...form.destinations, ...(showOtherDestination ? otherDestinations : [])]))
     const split = taxonomies ? splitDestinations(taxonomies, targetCountries) : { destinations: targetCountries, otherDestinations: [] }
-    writePendingDraft({ origin: form.origin || input?.origin_country || '', field: form.field || input?.field || '', degree: form.degree || input?.program_level || '', destinations: split.destinations, otherDestinations: split.otherDestinations, showOtherDestination: showOtherDestination || split.otherDestinations.length > 0 })
+    writePendingDraft({ origin: form.origin || input?.origin_country || '', field: form.field || input?.field || '', degree: form.degree || input?.program_level || '', qualification: form.qualification, destinations: split.destinations, otherDestinations: split.otherDestinations, showOtherDestination: showOtherDestination || split.otherDestinations.length > 0 })
     requestId.current += 1
     setPendingModalId(null); setResults([]); setNextCursor(null); setWarnings([]); setError(null); setActiveSearchId(''); setView('form')
     router.replace('/')
@@ -183,7 +189,7 @@ export function Finder({ searchId, selectedScholarshipId }: { searchId?: string;
     <label className="form-question">Where are you from? {taxonomies && <CountryCombobox options={taxonomies.countries} value={form.origin} onChange={(code) => update('origin', code)} ariaLabel="Search for your country of origin" ariaInvalid={!!validation.origin} />}<small>Helps us identify scholarships you're eligible to apply for</small>{validation.origin && <em className="error-text">{validation.origin}</em>}</label>
     <fieldset className="destination-control"><legend>Where do you want to study?</legend><div className="option-grid">{taxonomies?.destinations.map((item) => <label className={`option-chip ${form.destinations.includes(item.code) ? 'selected' : ''}`} key={item.code}><input type="checkbox" checked={form.destinations.includes(item.code)} onChange={() => toggleDestination(item.code)} />{item.label}</label>)}<label className={`option-chip ${!!taxonomies?.destinations.length && form.destinations.length === taxonomies.destinations.length ? 'selected' : ''}`}><input type="checkbox" checked={!!taxonomies?.destinations.length && form.destinations.length === taxonomies.destinations.length} onChange={(event) => update('destinations', event.target.checked ? (taxonomies?.destinations.map((item) => item.code) ?? []) : [])} />I'm open to any of these</label><div className={`option-chip ${showOtherDestination ? 'selected' : ''}`} role="checkbox" aria-checked={showOtherDestination} tabIndex={0} onPointerDown={(event) => { event.preventDefault(); toggleOtherDestination() }} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggleOtherDestination() } }}>Somewhere else</div></div>{showOtherDestination && taxonomies && <><div className="country-selections" aria-label="Selected alternate destination countries">{visibleOtherDestinations.map((code) => <span className="country-selection" key={code}>{label(taxonomies.countries, code)}<button type="button" aria-label={'Remove ' + label(taxonomies.countries, code)} onClick={() => setOtherDestinations((current) => current.filter((item) => item !== code))}>{'\u00d7'}</button></span>)}</div><CountryCombobox options={taxonomies.countries} value="" ariaLabel="Search for another destination country" clearOnSelect clearValueOnSearch={false} excludeCodes={[...otherDestinations, ...form.destinations]} onChange={(code) => setOtherDestinations((current) => current.includes(code) ? current : [...current, code])} /></>}{validation.destinations && <em className="error-text">{validation.destinations}</em>}</fieldset>
     <label className="form-question">What do you want to study? <select value={form.field} onChange={(event) => update('field', event.target.value)}><option value="">Select your field of study</option>{taxonomies?.fields.map((item) => <option value={item.code} key={item.code}>{item.label}</option>)}</select></label>
-    <fieldset className="choice-control"><legend>What is your highest level of qualification?</legend><div className="option-grid"><label className="option-chip"><input type="radio" name="qualification" />HND</label><label className="option-chip"><input type="radio" name="qualification" />Bachelor's degree (BSc)</label><label className="option-chip"><input type="radio" name="qualification" />Master's degree (MSc)</label><label className="option-chip"><input type="radio" name="qualification" />Doctoral program (PhD)</label></div></fieldset>
+    <fieldset className="choice-control"><legend>What is your highest level of qualification?</legend><div className="option-grid">{[{ code: 'hnd', label: 'HND' }, { code: 'bachelors', label: "Bachelor's degree (BSc)" }, { code: 'masters', label: "Master's degree (MSc)" }, { code: 'doctorate', label: 'Doctoral program (PhD)' }].map((item) => <label className={`option-chip ${form.qualification === item.code ? 'selected' : ''}`} key={item.code}><input type="radio" name="qualification" checked={form.qualification === item.code} onChange={() => update('qualification', item.code)} />{item.label}</label>)}</div></fieldset>
     <fieldset className="choice-control"><legend>What are you applying for?</legend><div className="option-grid">{taxonomies?.degrees.map((item) => <label className={`option-chip ${form.degree === item.code ? 'selected' : ''}`} key={item.code}><input type="radio" name="degree" value={item.code} checked={form.degree === item.code} onChange={() => update('degree', item.code)} />{item.code === 'masters' ? "Master's degree (MSc)" : 'Doctoral program (PhD)'}</label>)}</div>{validation.degree && <em className="error-text">{validation.degree}</em>}</fieldset>
     {(!taxonomies || taxonomyError) && <div className={`form-alert ${taxonomyError ? 'is-error' : ''}`} role={taxonomyError ? 'alert' : undefined}>{taxonomyError ? "We couldn't load the search options. Refresh to try again." : 'Loading search options...'}</div>}{error && <div className="form-alert is-error" role="alert">{error.retryAfter ? `Search is busy. Try again in ${error.retryAfter} seconds.` : error.message}</div>}<PrimaryButton type="submit" disabled={loadingMore}>Find my scholarships</PrimaryButton>
   </form></section>
