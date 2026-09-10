@@ -5,8 +5,8 @@ const taxonomies = {
   version: 'taxonomy-v1',
   countries: [{ code: 'NG', label: 'Nigeria' }, { code: 'GH', label: 'Ghana' }],
   destinations: [{ code: 'CA', label: 'Canada' }, { code: 'FR', label: 'France' }],
-  degrees: [{ code: 'masters', label: "Master's" }, { code: 'doctorate', label: 'PhD' }],
-  fields: [{ code: 'health_and_welfare', label: 'Health and welfare' }],
+  degrees: [{ code: 'masters', label: "Master's degree" }, { code: 'mba', label: 'Master of Business Administration (MBA)' }, { code: 'doctorate', label: 'Doctoral Programme (PhD)' }],
+  fields: [{ code: 'health_and_medical_sciences', label: 'Health and Medical Sciences' }],
   award_types: [{ code: 'scholarship', label: 'Scholarship' }],
   funding_types: [{ code: 'fully_funded', label: 'Fully funded' }],
 }
@@ -17,7 +17,7 @@ async function mockApi(page: Page, body: object, status = 200, headers: Record<s
 }
 
 function makeScholarship(id: string, overrides: Record<string, unknown> = {}) {
-  return { scholarship_id: id, cycle_id: `${id}-cycle`, name: `Award ${id}`, provider: 'Edufurther Foundation', award_type: 'scholarship', destinations: ['CA'], status: 'open_verified', status_detail: 'open', fit: 'confirmed', official_url: 'https://example.com/award', last_verified_at: '2026-08-01T00:00:00Z', provider_country: 'NG', funding_type: 'fully_funded', degree_levels: ['masters'], deadline_at: '2026-12-31T00:00:00Z', deadline_precision: 'date', ...overrides }
+  return { scholarship_id: id, cycle_id: `${id}-cycle`, name: `Award ${id}`, provider: 'Edufurther Foundation', award_type: 'scholarship', destinations: ['CA'], status: 'open', status_detail: 'open', fit: 'confirmed', official_url: 'https://example.com/award', last_verified_at: '2026-08-01T00:00:00Z', provider_country: 'NG', funding_type: 'fully_funded', degree_levels: ['masters'], deadline_at: '2026-12-31T00:00:00Z', deadline_precision: 'date', ...overrides }
 }
 
 test('renders the accessible search shell on mobile', async ({ page }) => {
@@ -38,11 +38,11 @@ test('validates required fields and preserves the form', async ({ page }) => {
 })
 
 test('renders results and unsupported destination warnings', async ({ page }) => {
-  await mockApi(page, { data: [{ scholarship_id: 'sch-1', cycle_id: 'cycle-1', name: 'Future Health Award', provider: 'Edufurther Foundation', award_type: 'scholarship', destinations: ['CA'], status: 'open_verified', status_detail: 'open', fit: 'confirmed', official_url: 'https://example.com/award', last_verified_at: '2026-08-01T00:00:00Z', provider_country: 'NG', funding_type: 'fully_funded', degree_levels: ['masters'], deadline_at: '2026-12-31T00:00:00Z', deadline_precision: 'date' }], next_cursor: null, meta: { warnings: ['no_verified_coverage:FR'] } })
+  await mockApi(page, { data: [{ scholarship_id: 'sch-1', cycle_id: 'cycle-1', name: 'Future Health Award', provider: 'Edufurther Foundation', award_type: 'scholarship', destinations: ['CA'], status: 'open', status_detail: 'open', fit: 'confirmed', official_url: 'https://example.com/award', last_verified_at: '2026-08-01T00:00:00Z', provider_country: 'NG', funding_type: 'fully_funded', degree_levels: ['masters'], deadline_at: '2026-12-31T00:00:00Z', deadline_precision: 'date' }], next_cursor: null, meta: { warnings: ['no_verified_coverage:FR'] } })
   await page.goto('/')
   await page.getByRole('combobox', { name: 'Search for your country of origin' }).fill('Niger')
   await page.getByRole('option', { name: 'Nigeria' }).click()
-  await page.getByRole('radio', { name: "Master's degree (MSc)" }).last().check()
+  await page.getByRole('checkbox', { name: "Master's degree" }).check()
   await page.getByRole('checkbox', { name: 'Canada' }).check()
   await page.getByRole('button', { name: /find (my )?scholarships/i }).click()
   await expect(page.getByRole('heading', { name: /future health award/i })).toBeVisible()
@@ -57,7 +57,7 @@ test('shows retry guidance for rate limits', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('combobox', { name: 'Search for your country of origin' }).fill('Niger')
   await page.getByRole('option', { name: 'Nigeria' }).click()
-  await page.getByRole('radio', { name: "Master's degree (MSc)" }).last().check()
+  await page.getByRole('checkbox', { name: "Master's degree" }).check()
   await page.getByRole('checkbox', { name: 'Canada' }).check()
   await page.getByRole('button', { name: /find (my )?scholarships/i }).click()
   await expect(page.locator('.form-alert.is-error[role="alert"]')).toContainText(/try again in 60 seconds/i)
@@ -96,45 +96,71 @@ test('includes an active Somewhere else country in target_countries', async ({ p
   await page.getByRole('option', { name: 'Ghana' }).click()
   await page.getByRole('combobox', { name: 'Search for another destination country' }).click()
   await page.getByRole('option', { name: 'Nigeria' }).click()
-  await page.getByRole('radio', { name: "Master's degree (MSc)" }).last().check()
+  await page.getByRole('checkbox', { name: "Master's degree" }).check()
+  await page.getByRole('checkbox', { name: 'Master of Business Administration (MBA)' }).check()
   await page.getByRole('button', { name: /find (my )?scholarships/i }).click()
   await expect.poll(() => requestBody?.target_countries).toEqual(['GH', 'NG'])
+  await expect.poll(() => requestBody?.program_levels).toEqual(['masters', 'mba'])
 })
 test('loads scholarship detail and separates personalized guidance from eligibility notes', async ({ page }) => {
   await page.route('**/api/v1/taxonomies', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(taxonomies) }))
-  await page.route('**/api/v1/search', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [{ scholarship_id: 'sch-1', cycle_id: 'cycle-1', name: 'Future Health Award', provider: 'Edufurther Foundation', award_type: 'scholarship', destinations: ['CA'], status: 'open_verified', status_detail: 'open', fit: 'confirmed', official_url: 'https://example.com/award', last_verified_at: '2026-08-01T00:00:00Z', provider_country: 'NG', funding_type: 'fully_funded', degree_levels: ['masters'], deadline_at: '2026-12-31T00:00:00Z', deadline_precision: 'date', eligibility_note: 'Applicants must meet the official nationality requirements.', caveats: ['Review the provider criteria before applying.'] }], next_cursor: null, meta: {} }) }))
-  await page.route('**/api/v1/scholarships/sch-1', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ scholarship_id: 'sch-1', cycle_id: 'cycle-1', name: 'Future Health Award', provider: 'Edufurther Foundation', official_url: 'https://example.com/award', destinations: ['CA'], status: 'open_verified', status_detail: 'open', fit: 'confirmed', last_verified_at: '2026-08-01T00:00:00Z', provider_country: 'NG', funding_type: 'fully_funded', degree_levels: ['masters'], deadline_at: '2026-12-31T00:00:00Z', deadline_precision: 'date', eligibility_note: 'Applicants must meet the official nationality requirements.', caveats: ['Review the provider criteria before applying.'], match_explanation: 'This opportunity matches your selected study level and destination.' }) }))
+  await page.route('**/api/v1/search', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [{ scholarship_id: 'sch-1', cycle_id: 'cycle-1', name: 'Future Health Award', provider: 'Edufurther Foundation', award_type: 'scholarship', destinations: ['CA'], status: 'open', status_detail: 'open', fit: 'confirmed', official_url: 'https://example.com/award', last_verified_at: '2026-08-01T00:00:00Z', provider_country: 'NG', funding_type: 'fully_funded', degree_levels: ['masters'], field_names: ['Health and Medical Sciences'], programme_names: ['MSc Human Health'], deadline_at: '2026-12-31T00:00:00Z', deadline_precision: 'date', eligibility_note: 'Applicants must meet the official nationality requirements.', caveats: ['Review the provider criteria before applying.'] }], next_cursor: null, meta: {} }) }))
+  await page.route('**/api/v1/scholarships/sch-1', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ scholarship_id: 'sch-1', cycle_id: 'cycle-1', name: 'Future Health Award', provider: 'Edufurther Foundation', official_url: 'https://example.com/award', destinations: ['CA'], status: 'open', status_detail: 'open', fit: 'confirmed', last_verified_at: '2026-08-01T00:00:00Z', provider_country: 'NG', funding_type: 'fully_funded', degree_levels: ['masters'], field_names: ['Health and Medical Sciences'], programme_names: ['MSc Human Health'], deadline_at: '2026-12-31T00:00:00Z', deadline_precision: 'date', eligibility_note: 'Applicants must meet the official nationality requirements.', caveats: ['Review the provider criteria before applying.'], match_explanation: 'This opportunity matches your selected study level and destination.' }) }))
   await page.goto('/')
   await page.getByRole('combobox', { name: 'Search for your country of origin' }).fill('Niger')
   await page.getByRole('option', { name: 'Nigeria' }).click()
-  await page.getByRole('radio', { name: "Master's degree (MSc)" }).last().check()
+  await page.getByRole('checkbox', { name: "Master's degree" }).check()
   await page.getByRole('checkbox', { name: 'Canada' }).check()
   await page.getByRole('button', { name: /find (my )?scholarships/i }).click()
   await page.getByRole('button', { name: /view details/i }).click()
   await expect(page.getByRole('heading', { name: 'Why this may fit' })).toBeVisible()
   await expect(page.getByText('This opportunity matches your selected study level and destination.')).toBeVisible()
+  await expect(page.getByText('Health and Medical Sciences', { exact: true })).toBeVisible()
+  await expect(page.getByText('MSc Human Health', { exact: true })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Eligibility note' })).toBeVisible()
   await expect(page.getByText('Applicants must meet the official nationality requirements.', { exact: true })).toBeVisible()
+})
+
+test('renders short, long and missing eligibility notes correctly in the modal', async ({ page }) => {
+  const shortNote = 'Open to eligible applicants.'
+  const longNote = 'Applicants must meet strict nationality, academic performance, and financial need requirements as detailed on the official provider website, and should prepare supporting documents well in advance of the published deadline.'
+  const scenarios: { searchId: string; scholarshipId: string; note: string | undefined }[] = [
+    { searchId: 'search-note-short', scholarshipId: 'sch-note-short', note: shortNote },
+    { searchId: 'search-note-long', scholarshipId: 'sch-note-long', note: longNote },
+    { searchId: 'search-note-none', scholarshipId: 'sch-note-none', note: undefined },
+  ]
+  await page.route('**/api/v1/taxonomies', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(taxonomies) }))
+  for (const scenario of scenarios) {
+    const result = makeScholarship(scenario.scholarshipId, { eligibility_note: scenario.note })
+    const searchResponse = { data: [result], next_cursor: null, meta: { search_id: scenario.searchId, response_id: scenario.searchId + '-response', warnings: [] } }
+    await page.route(`**/api/v1/search/${scenario.searchId}`, (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(searchResponse) }))
+    await page.route(`**/api/v1/scholarships/${scenario.scholarshipId}`, (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(result) }))
+    await page.goto(`/search/${scenario.searchId}?scholarship=${scenario.scholarshipId}`)
+    await expect(page.getByRole('dialog').getByRole('heading', { name: `Award ${scenario.scholarshipId}` })).toBeVisible()
+    await expect(page.getByText(scenario.note ?? 'Eligibility information is not available for this opportunity yet.', { exact: true })).toBeVisible()
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+    expect(overflow).toBeLessThanOrEqual(1)
+  }
 })
 
 test('persists results by search ID and falls back to the backend after cache expiry', async ({ page }) => {
   let postCount = 0
   let replayCount = 0
-  const response = { data: [], next_cursor: null, meta: { search_id: 'search-1', response_id: 'response-1', warnings: [] }, filters: { origin_country: 'NG', target_countries: ['CA'], program_level: 'masters', limit: 20 } }
+  const response = { data: [], next_cursor: null, meta: { search_id: 'search-1', response_id: 'response-1', warnings: [] }, filters: { origin_country: 'NG', target_countries: ['CA'], program_levels: ['masters'], limit: 20 } }
   await page.route('**/api/v1/taxonomies', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(taxonomies) }))
   await page.route('**/api/v1/search', (route) => { postCount += 1; return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(response) }) })
   await page.route('**/api/v1/search/search-1', (route) => { replayCount += 1; return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(response) }) })
   await page.goto('/')
   await page.getByRole('combobox', { name: 'Search for your country of origin' }).fill('Niger')
   await page.getByRole('option', { name: 'Nigeria' }).click()
-  await page.getByRole('radio', { name: "Master's degree (MSc)" }).last().check()
+  await page.getByRole('checkbox', { name: "Master's degree" }).check()
   await page.getByRole('checkbox', { name: 'Canada' }).check()
   await page.getByRole('button', { name: /find (my )?scholarships/i }).click()
   await expect.poll(() => postCount).toBe(1)
   await expect(page).toHaveURL(/\/search\/search-1$/)
   await expect(page.getByRole('heading', { name: /find a match yet/i })).toBeVisible()
   await page.evaluate(() => {
-    const key = 'edufurther:search-response:search-1'
+    const key = 'edufurther:search-response:v3:search-1'
     const cached = JSON.parse(sessionStorage.getItem(key) ?? '{}')
     cached.cachedAt = 0
     sessionStorage.setItem(key, JSON.stringify(cached))
@@ -145,7 +171,7 @@ test('persists results by search ID and falls back to the backend after cache ex
   expect(replayCount).toBe(1)
 })
 test('preserves all criteria when refining a saved search', async ({ page }) => {
-  const response = { data: [], next_cursor: null, meta: { search_id: 'search-refine', response_id: 'response-refine', warnings: [] }, filters: { origin_country: 'NG', target_countries: ['CA', 'GH'], program_level: 'masters', field: 'health_and_welfare', limit: 20 } }
+  const response = { data: [], next_cursor: null, meta: { search_id: 'search-refine', response_id: 'response-refine', warnings: [] }, filters: { origin_country: 'NG', target_countries: ['CA', 'GH'], program_levels: ['masters'], field: 'health_and_medical_sciences', limit: 20 } }
   await page.route('**/api/v1/taxonomies', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(taxonomies) }))
   await page.route('**/api/v1/search', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(response) }))
   await page.goto('/')
@@ -155,9 +181,9 @@ test('preserves all criteria when refining a saved search', async ({ page }) => 
   await page.getByRole('combobox', { name: 'Search for another destination country' }).click()
   await page.getByRole('option', { name: 'Ghana' }).click()
   await page.getByRole('checkbox', { name: 'Canada' }).check()
-  await page.getByRole('combobox', { name: 'What do you want to study?' }).selectOption('health_and_welfare')
-  await page.getByRole('radio', { name: "Bachelor's degree (BSc)" }).check()
-  await page.getByRole('radio', { name: "Master's degree (MSc)" }).last().check()
+  await page.getByRole('combobox', { name: 'What do you want to study?' }).selectOption('health_and_medical_sciences')
+  await page.getByRole('radio', { name: "Bachelor's degree" }).check()
+  await page.getByRole('checkbox', { name: "Master's degree" }).check()
   await page.getByRole('button', { name: /find (my )?scholarships/i }).click()
   await expect(page).toHaveURL(/\/search\/search-refine$/)
   await page.getByRole('button', { name: /refine my search/i }).click()
@@ -166,13 +192,13 @@ test('preserves all criteria when refining a saved search', async ({ page }) => 
   await expect(page.getByRole('checkbox', { name: 'Canada' })).toBeChecked()
   await expect(page.getByText('Somewhere else', { exact: true })).toHaveAttribute('aria-checked', 'true')
   await expect(page.locator('.country-selection', { hasText: 'Ghana' })).toBeVisible()
-  await expect(page.getByRole('combobox', { name: 'What do you want to study?' })).toHaveValue('health_and_welfare')
-  await expect(page.getByRole('radio', { name: "Bachelor's degree (BSc)" })).toBeChecked()
-  await expect(page.getByRole('radio', { name: "Master's degree (MSc)" }).last()).toBeChecked()
+  await expect(page.getByRole('combobox', { name: 'What do you want to study?' })).toHaveValue('health_and_medical_sciences')
+  await expect(page.getByRole('radio', { name: "Bachelor's degree" })).toBeChecked()
+  await expect(page.getByRole('checkbox', { name: "Master's degree" })).toBeChecked()
 })
 
 test('preserves multiple Somewhere else countries when refining a saved search', async ({ page }) => {
-  const response = { data: [], next_cursor: null, meta: { search_id: 'search-multi-refine', response_id: 'response-multi-refine', warnings: [] }, filters: { origin_country: 'NG', target_countries: ['NG', 'GH'], program_level: 'masters', limit: 20 } }
+  const response = { data: [], next_cursor: null, meta: { search_id: 'search-multi-refine', response_id: 'response-multi-refine', warnings: [] }, filters: { origin_country: 'NG', target_countries: ['NG', 'GH'], program_levels: ['masters'], limit: 20 } }
   await page.route('**/api/v1/taxonomies', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(taxonomies) }))
   await page.route('**/api/v1/search', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(response) }))
   await page.goto('/')
@@ -183,7 +209,7 @@ test('preserves multiple Somewhere else countries when refining a saved search',
   await page.getByRole('option', { name: 'Ghana' }).click()
   await page.getByRole('combobox', { name: 'Search for another destination country' }).click()
   await page.getByRole('option', { name: 'Nigeria' }).click()
-  await page.getByRole('radio', { name: "Master's degree (MSc)" }).last().check()
+  await page.getByRole('checkbox', { name: "Master's degree" }).check()
   await page.getByRole('button', { name: /find (my )?scholarships/i }).click()
   await expect(page).toHaveURL(/\/search\/search-multi-refine$/)
   await page.getByRole('button', { name: /refine my search/i }).click()
@@ -192,7 +218,7 @@ test('preserves multiple Somewhere else countries when refining a saved search',
   await expect(page.getByText('Somewhere else', { exact: true })).toHaveAttribute('aria-checked', 'true')
   await expect(page.locator('.country-selection', { hasText: 'Ghana' })).toBeVisible()
   await expect(page.locator('.country-selection', { hasText: 'Nigeria' })).toBeVisible()
-  await expect(page.getByRole('radio', { name: "Master's degree (MSc)" }).last()).toBeChecked()
+  await expect(page.getByRole('checkbox', { name: "Master's degree" })).toBeChecked()
 })
 
 test('excludes a country already selected as a primary destination from the Somewhere else picker without crashing', async ({ page }) => {
@@ -239,7 +265,7 @@ test('shows scholarship card data immediately while detail and explanation reque
   await page.goto('/')
   await page.getByRole('combobox', { name: 'Search for your country of origin' }).fill('Niger')
   await page.getByRole('option', { name: 'Nigeria' }).click()
-  await page.getByRole('radio', { name: "Master's degree (MSc)" }).last().check()
+  await page.getByRole('checkbox', { name: "Master's degree" }).check()
   await page.getByRole('checkbox', { name: 'Canada' }).check()
   await page.getByRole('button', { name: /find (my )?scholarships/i }).click()
   await page.getByRole('button', { name: /view details/i }).click()
@@ -276,7 +302,7 @@ test('supports browser back/forward around a click-opened modal, with a single h
   await page.goto('/')
   await page.getByRole('combobox', { name: 'Search for your country of origin' }).fill('Niger')
   await page.getByRole('option', { name: 'Nigeria' }).click()
-  await page.getByRole('radio', { name: "Master's degree (MSc)" }).last().check()
+  await page.getByRole('checkbox', { name: "Master's degree" }).check()
   await page.getByRole('checkbox', { name: 'Canada' }).check()
   await page.getByRole('button', { name: /find (my )?scholarships/i }).click()
   await expect(page).toHaveURL(/\/search\/search-nav$/)
@@ -309,7 +335,7 @@ test('renders no raw HTML entities or mojibake text', async ({ page }) => {
   for (const marker of forbidden) expect(formText).not.toContain(marker)
   await page.getByRole('combobox', { name: 'Search for your country of origin' }).fill('Niger')
   await page.getByRole('option', { name: 'Nigeria' }).click()
-  await page.getByRole('radio', { name: "Master's degree (MSc)" }).last().check()
+  await page.getByRole('checkbox', { name: "Master's degree" }).check()
   await page.getByRole('checkbox', { name: 'Canada' }).check()
   await page.getByRole('button', { name: /find (my )?scholarships/i }).click()
   await expect(page.getByRole('heading', { name: 'Award sch-clean' })).toBeVisible()
@@ -317,11 +343,11 @@ test('renders no raw HTML entities or mojibake text', async ({ page }) => {
   for (const marker of forbidden) expect(resultsText).not.toContain(marker)
 })
 
-test('keeps consistent card section padding and avoids horizontal overflow on mobile', async ({ page }) => {
+test('keeps consistent card section padding with varied result content and avoids horizontal overflow on mobile', async ({ page }) => {
   const results = [
-    makeScholarship('sch-short', { eligibility_note: 'Open to eligible applicants.' }),
-    makeScholarship('sch-long', { eligibility_note: 'Applicants must meet strict nationality, academic performance, and financial need requirements as detailed on the official provider website, and should prepare supporting documents well in advance of the published deadline.' }),
-    makeScholarship('sch-fallback', { eligibility_note: undefined }),
+    makeScholarship('sch-short'),
+    makeScholarship('sch-long', { name: 'A Very Long Scholarship Award Name That Should Wrap Across Several Lines On A Narrow Mobile Screen Without Breaking The Card Layout', destinations: ['CA', 'FR'], degree_levels: ['masters', 'mba', 'doctorate'], fit: 'possible' }),
+    makeScholarship('sch-fallback', { deadline_at: null, degree_levels: undefined, funding_type: undefined }),
   ]
   await page.route('**/api/v1/taxonomies', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(taxonomies) }))
   await page.route('**/api/v1/search', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: results, next_cursor: null, meta: {} }) }))
@@ -329,12 +355,13 @@ test('keeps consistent card section padding and avoids horizontal overflow on mo
   await page.goto('/')
   await page.getByRole('combobox', { name: 'Search for your country of origin' }).fill('Niger')
   await page.getByRole('option', { name: 'Nigeria' }).click()
-  await page.getByRole('radio', { name: "Master's degree (MSc)" }).last().check()
+  await page.getByRole('checkbox', { name: "Master's degree" }).check()
   await page.getByRole('checkbox', { name: 'Canada' }).check()
   await page.getByRole('button', { name: /find (my )?scholarships/i }).click()
   await expect(page.getByRole('heading', { name: 'Award sch-fallback' })).toBeVisible()
-  const paddings = await page.locator('.eligibility.card-section').evaluateAll((elements) => elements.map((element) => getComputedStyle(element).padding))
-  expect(paddings.length).toBe(3)
+  await expect(page.getByText('Possible match - not yet fully confirmed')).toBeVisible()
+  const paddings = await page.locator('.result-card .card-section').evaluateAll((elements) => elements.map((element) => getComputedStyle(element).padding))
+  expect(paddings.length).toBeGreaterThan(0)
   expect(new Set(paddings).size).toBe(1)
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
   expect(overflow).toBeLessThanOrEqual(1)
@@ -349,7 +376,7 @@ test('shows a loading panel instead of stale content during search navigation', 
   await page.goto('/')
   await page.getByRole('combobox', { name: 'Search for your country of origin' }).fill('Niger')
   await page.getByRole('option', { name: 'Nigeria' }).click()
-  await page.getByRole('radio', { name: "Master's degree (MSc)" }).last().check()
+  await page.getByRole('checkbox', { name: "Master's degree" }).check()
   await page.getByRole('checkbox', { name: 'Canada' }).check()
   await page.getByRole('button', { name: /find (my )?scholarships/i }).click()
   await expect(page.getByRole('status', { name: '' }).filter({ hasText: 'Finding scholarships' })).toBeVisible()
