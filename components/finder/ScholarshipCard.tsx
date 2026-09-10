@@ -22,8 +22,8 @@ function formatDeadline(result: Scholarship) {
   return result.deadline_precision === 'datetime' ? date : 'By ' + date
 }
 
-function formatStatus(status: Scholarship['status_detail']) {
-  return status.replaceAll('_', ' ')
+function formatStatus(status: Scholarship['status']) {
+  return status === 'closing_soon' ? 'Closing soon' : status === 'likely_to_open' ? 'Likely to open' : 'Open'
 }
 
 export function ScholarshipCard({ result, destinations, countries, degrees, fundingTypes, matchProfile, searchId, detailsOpen: controlledDetailsOpen, onDetailsOpen, onDetailsClose }: { result: Scholarship; destinations: Option[]; countries: Option[]; degrees: Option[]; fundingTypes: Option[]; matchProfile: MatchProfile; searchId?: string; detailsOpen?: boolean; onDetailsOpen?: (identifier: string) => void; onDetailsClose?: () => void }) {
@@ -36,13 +36,11 @@ export function ScholarshipCard({ result, destinations, countries, degrees, fund
   const isDetailsOpen = controlledDetailsOpen ?? detailsOpen
   const openDetails = () => { onDetailsOpen ? onDetailsOpen(result.scholarship_id) : setDetailsOpen(true) }
   const closeDetails = () => { onDetailsClose ? onDetailsClose() : setDetailsOpen(false) }
-  const eligibilityNote = typeof result.eligibility_note === 'string' && result.eligibility_note.trim() ? result.eligibility_note : 'Eligibility information is not available for this opportunity yet.'
 
   return <article className="result-card">
-    <div className="result-top card-section"><span className={'status status-' + result.status_detail}>{formatStatus(result.status_detail)}</span><span className={'fit fit-' + result.fit}>{result.fit === 'confirmed' ? 'Matches your criteria' : 'Possible match'}</span></div>
+    <div className="result-top card-section"><span className={'status status-' + result.status}>{formatStatus(result.status)}</span></div>
     <div className="card-provider card-section"><h3>{result.name}</h3><p className="provider">{result.provider}{providerCountry ? ' - ' + providerCountry : ''}</p></div>
     <div className="result-details card-section"><div><span>Funding type</span><strong>{funding}</strong></div><div><span>Degree</span><strong>{degree}</strong></div><div><span>Study destination</span><strong>{destination}</strong></div><div><span>Deadline</span><strong>{reopen ?? formatDeadline(result)}</strong></div></div>
-    <div className="eligibility card-section"><strong>Eligibility note:</strong> {eligibilityNote}</div>
     <div className="result-footer card-section"><span>Last verified: {formatDate(result.last_verified_at) ?? 'Not verified'}</span><button className="official-link details-link" type="button" onClick={openDetails}>View details <span aria-hidden="true">{'\u2192'}</span></button></div>
     {isDetailsOpen && <ScholarshipDetailsModal result={result} countries={countries} degrees={degrees} fundingTypes={fundingTypes} matchProfile={matchProfile} searchId={searchId} onClose={closeDetails} />}
   </article>

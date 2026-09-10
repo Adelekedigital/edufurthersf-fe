@@ -1,7 +1,7 @@
 import type { ApiError, MatchProfile, SearchInput, SearchResponse, ScholarshipDetail, Taxonomies } from './types'
 
 const baseUrl = '/api/v1'
-const taxonomyCacheKey = 'edufurther:taxonomies:v1'
+const taxonomyCacheKey = 'edufurther:taxonomies:v3'
 const taxonomyCacheTtl = 60 * 60 * 1000
 const searchCachePrefix = 'edufurther:search-response:'
 const searchCacheTtl = 5 * 60 * 1000
