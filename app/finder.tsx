@@ -3,7 +3,7 @@
 /* eslint-disable react/no-unescaped-entities */
 import { FormEvent, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { cacheSearchResponse, getSavedSearch, getTaxonomies, searchScholarships } from './api'
+import { CONTRACT_VERSION, cacheSearchResponse, getSavedSearch, getTaxonomies, parseSearchInput, searchScholarships } from './api'
 import type { ApiError, Option, Scholarship, SearchInput, Taxonomies } from './types'
 import { SiteFooter } from '../components/shell/SiteFooter'
 import { SiteHeader } from '../components/shell/SiteHeader'
@@ -18,8 +18,8 @@ type ViewState = 'form' | 'searching' | 'results' | 'error'
 type FinderDraft = FormState & { otherDestinations: string[]; showOtherDestination: boolean }
 const emptyForm: FormState = { origin: '', destinations: [], field: '', degree: [], qualification: '' }
 const label = (options: Option[], code: string) => options.find((item) => item.code === code)?.label ?? code
-const searchProfileKey = (searchId: string) => 'edufurther:search-profile:' + searchId
-const qualificationKey = (searchId: string) => 'edufurther:qualification:' + searchId
+const searchProfileKey = (searchId: string) => `edufurther:search-profile:${CONTRACT_VERSION}:` + searchId
+const qualificationKey = (searchId: string) => `edufurther:qualification:${CONTRACT_VERSION}:` + searchId
 const pendingDraftKey = 'edufurther:pending-refine-draft'
 
 function readSessionJSON<T>(key: string): T | null {
@@ -34,7 +34,11 @@ function removeSessionItem(key: string) {
   if (typeof window === 'undefined') return
   try { window.sessionStorage.removeItem(key) } catch { /* Storage may be unavailable. */ }
 }
-const readSearchProfile = (searchId: string) => readSessionJSON<SearchInput>(searchProfileKey(searchId))
+const readSearchProfile = (searchId: string): SearchInput | null => {
+  const value = readSessionJSON<unknown>(searchProfileKey(searchId))
+  if (value === null) return null
+  try { return parseSearchInput(value) } catch { return null }
+}
 const writeSearchProfile = (searchId: string, input: SearchInput) => writeSessionJSON(searchProfileKey(searchId), { ...input, cursor: undefined })
 // Qualification isn't part of the backend's SearchInput contract, so it can't ride along with the
 // search profile above; it needs its own per-search cache to survive the '/' -> '/search/{id}' remount.
@@ -50,6 +54,10 @@ function splitDestinations(taxonomies: Taxonomies, targetCountries: string[]) {
     otherDestinations: targetCountries.filter((code) => !taxonomyCodes.has(code)),
   }
 }
+function toggleListValue(list: string[], code: string): string[] {
+  const current = Array.isArray(list) ? list : []
+  return current.includes(code) ? current.filter((item) => item !== code) : [...current, code]
+}
 
 export function Finder({ searchId, selectedScholarshipId }: { searchId?: string; selectedScholarshipId?: string }) {
   const router = useRouter()
@@ -59,7 +67,8 @@ export function Finder({ searchId, selectedScholarshipId }: { searchId?: string;
   const pendingNavigationRef = useRef<string | null>(null)
   const [navigationTick, setNavigationTick] = useState(0)
   const [initialDraft] = useState<FinderDraft | null>(() => searchId ? null : readPendingDraft())
-  const initialForm = initialDraft ? { origin: initialDraft.origin ?? '', destinations: initialDraft.destinations ?? [], field: initialDraft.field ?? '', degree: Array.isArray(initialDraft.degree) ? initialDraft.degree : [], qualification: initialDraft.qualification ?? '' } : emptyForm
+  const legacyDraftDegree = initialDraft?.degree as unknown
+  const initialForm = initialDraft ? { origin: initialDraft.origin ?? '', destinations: initialDraft.destinations ?? [], field: initialDraft.field ?? '', degree: Array.isArray(legacyDraftDegree) ? legacyDraftDegree : (typeof legacyDraftDegree === 'string' && legacyDraftDegree ? [legacyDraftDegree] : []), qualification: initialDraft.qualification ?? '' } : emptyForm
   const [activeSearchId, setActiveSearchId] = useState(searchId ?? '')
   const [taxonomies, setTaxonomies] = useState<Taxonomies | null>(null)
   const [taxonomyError, setTaxonomyError] = useState(false)
@@ -87,7 +96,7 @@ export function Finder({ searchId, selectedScholarshipId }: { searchId?: string;
       const filters = response.filters ?? readSearchProfile(searchId)
       if (filters) {
         const split = splitDestinations(taxonomies, filters.target_countries)
-        setForm({ origin: filters.origin_country, destinations: split.destinations, field: filters.field ?? '', degree: filters.program_levels, qualification: readQualification(searchId) })
+        setForm({ origin: filters.origin_country, destinations: split.destinations, field: filters.field ?? '', degree: Array.isArray(filters.program_levels) ? filters.program_levels : [], qualification: readQualification(searchId) })
         setOtherDestinations(split.otherDestinations)
         setShowOtherDestination(split.otherDestinations.length > 0)
         lastSubmittedInput.current = filters
@@ -116,8 +125,8 @@ export function Finder({ searchId, selectedScholarshipId }: { searchId?: string;
   }, [navigationTick, router])
 
   const update = (key: keyof FormState, value: string | string[]) => setForm((current) => ({ ...current, [key]: value }))
-  const toggleDestination = (code: string) => update('destinations', form.destinations.includes(code) ? form.destinations.filter((item) => item !== code) : [...form.destinations, code])
-  const toggleDegree = (code: string) => update('degree', form.degree.includes(code) ? form.degree.filter((item) => item !== code) : [...form.degree, code])
+  const toggleDestination = (code: string) => update('destinations', toggleListValue(form.destinations, code))
+  const toggleDegree = (code: string) => update('degree', toggleListValue(form.degree, code))
   // A country checked as a primary destination shouldn't also show as a "Somewhere else" chip; derive the
   // visible list instead of mutating otherDestinations so unchecking the primary destination restores it.
   const visibleOtherDestinations = otherDestinations.filter((code) => !form.destinations.includes(code))
@@ -180,7 +189,8 @@ export function Finder({ searchId, selectedScholarshipId }: { searchId?: string;
     const input = lastSubmittedInput.current ?? fallback
     const targetCountries = Array.from(new Set([...form.destinations, ...(showOtherDestination ? otherDestinations : [])]))
     const split = taxonomies ? splitDestinations(taxonomies, targetCountries) : { destinations: targetCountries, otherDestinations: [] }
-    writePendingDraft({ origin: form.origin || input?.origin_country || '', field: form.field || input?.field || '', degree: form.degree.length ? form.degree : input?.program_levels ?? [], qualification: form.qualification, destinations: split.destinations, otherDestinations: split.otherDestinations, showOtherDestination: showOtherDestination || split.otherDestinations.length > 0 })
+    const fallbackProgramLevels = input?.program_levels
+    writePendingDraft({ origin: form.origin || input?.origin_country || '', field: form.field || input?.field || '', degree: form.degree.length ? form.degree : (Array.isArray(fallbackProgramLevels) ? fallbackProgramLevels : []), qualification: form.qualification, destinations: split.destinations, otherDestinations: split.otherDestinations, showOtherDestination: showOtherDestination || split.otherDestinations.length > 0 })
     requestId.current += 1
     setPendingModalId(null); setResults([]); setNextCursor(null); setWarnings([]); setError(null); setActiveSearchId(''); setView('form')
     router.replace('/')

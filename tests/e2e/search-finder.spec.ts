@@ -104,8 +104,8 @@ test('includes an active Somewhere else country in target_countries', async ({ p
 })
 test('loads scholarship detail and separates personalized guidance from eligibility notes', async ({ page }) => {
   await page.route('**/api/v1/taxonomies', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(taxonomies) }))
-  await page.route('**/api/v1/search', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [{ scholarship_id: 'sch-1', cycle_id: 'cycle-1', name: 'Future Health Award', provider: 'Edufurther Foundation', award_type: 'scholarship', destinations: ['CA'], status: 'open', status_detail: 'open', fit: 'confirmed', official_url: 'https://example.com/award', last_verified_at: '2026-08-01T00:00:00Z', provider_country: 'NG', funding_type: 'fully_funded', degree_levels: ['masters'], fields: ['health_and_medical_sciences'], field_names: ['Health and Medical Sciences'], programme_names: ['MSc Human Health'], deadline_at: '2026-12-31T00:00:00Z', deadline_precision: 'date', eligibility_note: 'Applicants must meet the official nationality requirements.', caveats: ['Review the provider criteria before applying.'] }], next_cursor: null, meta: {} }) }))
-  await page.route('**/api/v1/scholarships/sch-1', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ scholarship_id: 'sch-1', cycle_id: 'cycle-1', name: 'Future Health Award', provider: 'Edufurther Foundation', official_url: 'https://example.com/award', destinations: ['CA'], status: 'open', status_detail: 'open', fit: 'confirmed', last_verified_at: '2026-08-01T00:00:00Z', provider_country: 'NG', funding_type: 'fully_funded', degree_levels: ['masters'], fields: ['health_and_medical_sciences'], field_names: ['Health and Medical Sciences'], programme_names: ['MSc Human Health'], deadline_at: '2026-12-31T00:00:00Z', deadline_precision: 'date', eligibility_note: 'Applicants must meet the official nationality requirements.', caveats: ['Review the provider criteria before applying.'], match_explanation: 'This opportunity matches your selected study level and destination.' }) }))
+  await page.route('**/api/v1/search', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [{ scholarship_id: 'sch-1', cycle_id: 'cycle-1', name: 'Future Health Award', provider: 'Edufurther Foundation', award_type: 'scholarship', destinations: ['CA'], status: 'open', status_detail: 'open', fit: 'confirmed', official_url: 'https://example.com/award', last_verified_at: '2026-08-01T00:00:00Z', provider_country: 'NG', funding_type: 'fully_funded', degree_levels: ['masters'], field_names: ['Health and Medical Sciences'], programme_names: ['MSc Human Health'], deadline_at: '2026-12-31T00:00:00Z', deadline_precision: 'date', eligibility_note: 'Applicants must meet the official nationality requirements.', caveats: ['Review the provider criteria before applying.'] }], next_cursor: null, meta: {} }) }))
+  await page.route('**/api/v1/scholarships/sch-1', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ scholarship_id: 'sch-1', cycle_id: 'cycle-1', name: 'Future Health Award', provider: 'Edufurther Foundation', official_url: 'https://example.com/award', destinations: ['CA'], status: 'open', status_detail: 'open', fit: 'confirmed', last_verified_at: '2026-08-01T00:00:00Z', provider_country: 'NG', funding_type: 'fully_funded', degree_levels: ['masters'], field_names: ['Health and Medical Sciences'], programme_names: ['MSc Human Health'], deadline_at: '2026-12-31T00:00:00Z', deadline_precision: 'date', eligibility_note: 'Applicants must meet the official nationality requirements.', caveats: ['Review the provider criteria before applying.'], match_explanation: 'This opportunity matches your selected study level and destination.' }) }))
   await page.goto('/')
   await page.getByRole('combobox', { name: 'Search for your country of origin' }).fill('Niger')
   await page.getByRole('option', { name: 'Nigeria' }).click()
@@ -119,6 +119,28 @@ test('loads scholarship detail and separates personalized guidance from eligibil
   await expect(page.getByText('MSc Human Health', { exact: true })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Eligibility note' })).toBeVisible()
   await expect(page.getByText('Applicants must meet the official nationality requirements.', { exact: true })).toBeVisible()
+})
+
+test('renders short, long and missing eligibility notes correctly in the modal', async ({ page }) => {
+  const shortNote = 'Open to eligible applicants.'
+  const longNote = 'Applicants must meet strict nationality, academic performance, and financial need requirements as detailed on the official provider website, and should prepare supporting documents well in advance of the published deadline.'
+  const scenarios: { searchId: string; scholarshipId: string; note: string | undefined }[] = [
+    { searchId: 'search-note-short', scholarshipId: 'sch-note-short', note: shortNote },
+    { searchId: 'search-note-long', scholarshipId: 'sch-note-long', note: longNote },
+    { searchId: 'search-note-none', scholarshipId: 'sch-note-none', note: undefined },
+  ]
+  await page.route('**/api/v1/taxonomies', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(taxonomies) }))
+  for (const scenario of scenarios) {
+    const result = makeScholarship(scenario.scholarshipId, { eligibility_note: scenario.note })
+    const searchResponse = { data: [result], next_cursor: null, meta: { search_id: scenario.searchId, response_id: scenario.searchId + '-response', warnings: [] } }
+    await page.route(`**/api/v1/search/${scenario.searchId}`, (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(searchResponse) }))
+    await page.route(`**/api/v1/scholarships/${scenario.scholarshipId}`, (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(result) }))
+    await page.goto(`/search/${scenario.searchId}?scholarship=${scenario.scholarshipId}`)
+    await expect(page.getByRole('dialog').getByRole('heading', { name: `Award ${scenario.scholarshipId}` })).toBeVisible()
+    await expect(page.getByText(scenario.note ?? 'Eligibility information is not available for this opportunity yet.', { exact: true })).toBeVisible()
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+    expect(overflow).toBeLessThanOrEqual(1)
+  }
 })
 
 test('persists results by search ID and falls back to the backend after cache expiry', async ({ page }) => {
@@ -138,7 +160,7 @@ test('persists results by search ID and falls back to the backend after cache ex
   await expect(page).toHaveURL(/\/search\/search-1$/)
   await expect(page.getByRole('heading', { name: /find a match yet/i })).toBeVisible()
   await page.evaluate(() => {
-    const key = 'edufurther:search-response:search-1'
+    const key = 'edufurther:search-response:v3:search-1'
     const cached = JSON.parse(sessionStorage.getItem(key) ?? '{}')
     cached.cachedAt = 0
     sessionStorage.setItem(key, JSON.stringify(cached))
@@ -321,11 +343,11 @@ test('renders no raw HTML entities or mojibake text', async ({ page }) => {
   for (const marker of forbidden) expect(resultsText).not.toContain(marker)
 })
 
-test('keeps consistent card section padding and avoids horizontal overflow on mobile', async ({ page }) => {
+test('keeps consistent card section padding with varied result content and avoids horizontal overflow on mobile', async ({ page }) => {
   const results = [
-    makeScholarship('sch-short', { eligibility_note: 'Open to eligible applicants.' }),
-    makeScholarship('sch-long', { eligibility_note: 'Applicants must meet strict nationality, academic performance, and financial need requirements as detailed on the official provider website, and should prepare supporting documents well in advance of the published deadline.' }),
-    makeScholarship('sch-fallback', { eligibility_note: undefined }),
+    makeScholarship('sch-short'),
+    makeScholarship('sch-long', { name: 'A Very Long Scholarship Award Name That Should Wrap Across Several Lines On A Narrow Mobile Screen Without Breaking The Card Layout', destinations: ['CA', 'FR'], degree_levels: ['masters', 'mba', 'doctorate'], fit: 'possible' }),
+    makeScholarship('sch-fallback', { deadline_at: null, degree_levels: undefined, funding_type: undefined }),
   ]
   await page.route('**/api/v1/taxonomies', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(taxonomies) }))
   await page.route('**/api/v1/search', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: results, next_cursor: null, meta: {} }) }))
@@ -337,6 +359,7 @@ test('keeps consistent card section padding and avoids horizontal overflow on mo
   await page.getByRole('checkbox', { name: 'Canada' }).check()
   await page.getByRole('button', { name: /find (my )?scholarships/i }).click()
   await expect(page.getByRole('heading', { name: 'Award sch-fallback' })).toBeVisible()
+  await expect(page.getByText('Possible match - not yet fully confirmed')).toBeVisible()
   const paddings = await page.locator('.result-card .card-section').evaluateAll((elements) => elements.map((element) => getComputedStyle(element).padding))
   expect(paddings.length).toBeGreaterThan(0)
   expect(new Set(paddings).size).toBe(1)

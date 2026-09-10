@@ -1,10 +1,12 @@
 import type { ApiError, MatchProfile, SearchInput, SearchResponse, ScholarshipDetail, Taxonomies } from './types'
 
 const baseUrl = '/api/v1'
-const taxonomyCacheKey = 'edufurther:taxonomies:v3'
+export const CONTRACT_VERSION = 'v3'
+const taxonomyCacheKey = `edufurther:taxonomies:${CONTRACT_VERSION}`
 const taxonomyCacheTtl = 60 * 60 * 1000
-const searchCachePrefix = 'edufurther:search-response:'
-const searchCacheTtl = 5 * 60 * 1000
+const searchCachePrefix = `edufurther:search-response:${CONTRACT_VERSION}:`
+export const searchCacheTtl = 5 * 60 * 1000
+export const modalCacheKey = (searchId: string, scholarshipId: string) => `edufurther:modal:${CONTRACT_VERSION}:${searchId}:${scholarshipId}`
 let taxonomyRequest: Promise<Taxonomies> | null = null
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -28,20 +30,30 @@ function parseTaxonomies(value: unknown): Taxonomies {
   return value as unknown as Taxonomies
 }
 
+export function parseSearchInput(value: unknown): SearchInput {
+  if (!isRecord(value) || typeof value.origin_country !== 'string' || !Array.isArray(value.program_levels) || !value.program_levels.every((item) => typeof item === 'string') || !Array.isArray(value.target_countries) || !value.target_countries.every((item) => typeof item === 'string') || typeof value.limit !== 'number' || (value.field !== undefined && typeof value.field !== 'string') || (value.cursor !== undefined && typeof value.cursor !== 'string')) {
+    throw contractError('The saved search filters are incompatible with this version of the app.')
+  }
+  return value as unknown as SearchInput
+}
+
 function parseSearchResponse(value: unknown): SearchResponse {
   if (!isRecord(value) || !Array.isArray(value.data) || (value.next_cursor !== null && typeof value.next_cursor !== 'string')) {
     throw contractError('The scholarship results returned by the backend are incompatible with this version of the app.')
   }
   for (const result of value.data) {
-    if (!isRecord(result) || typeof result.name !== 'string' || typeof result.provider !== 'string' || typeof result.official_url !== 'string' || !Array.isArray(result.destinations)) {
+    if (!isRecord(result) || typeof result.name !== 'string' || typeof result.provider !== 'string' || typeof result.official_url !== 'string' || !Array.isArray(result.destinations) || typeof result.status !== 'string' || typeof result.status_detail !== 'string') {
       throw contractError('A scholarship result is missing fields required by the frontend.')
     }
+  }
+  if (value.filters !== undefined) {
+    try { parseSearchInput(value.filters) } catch { value.filters = undefined }
   }
   return value as unknown as SearchResponse
 }
 
-function parseScholarshipDetail(value: unknown): ScholarshipDetail {
-  if (!isRecord(value) || typeof value.name !== 'string' || typeof value.provider !== 'string' || typeof value.official_url !== 'string' || !Array.isArray(value.destinations)) {
+export function parseScholarshipDetail(value: unknown): ScholarshipDetail {
+  if (!isRecord(value) || typeof value.name !== 'string' || typeof value.provider !== 'string' || typeof value.official_url !== 'string' || !Array.isArray(value.destinations) || typeof value.status !== 'string' || typeof value.status_detail !== 'string') {
     throw contractError('The scholarship detail returned by the backend is incompatible with this version of the app.')
   }
   return value as unknown as ScholarshipDetail
@@ -58,15 +70,23 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>
 }
 
-function readCachedTaxonomies() {
-  if (typeof window === 'undefined') return null
+export function readVersionedCache<T>(storage: Storage, key: string, ttlMs: number, parse: (value: unknown) => T): T | null {
   try {
-    const cached = JSON.parse(window.localStorage.getItem(taxonomyCacheKey) ?? 'null') as { cachedAt?: number; data?: unknown } | null
-    if (cached?.cachedAt && Date.now() - cached.cachedAt < taxonomyCacheTtl && cached.data) return parseTaxonomies(cached.data)
+    const cached = JSON.parse(storage.getItem(key) ?? 'null') as { cachedAt?: number; data?: unknown } | null
+    if (cached?.cachedAt && Date.now() - cached.cachedAt < ttlMs && cached.data) return parse(cached.data)
   } catch {
-    window.localStorage.removeItem(taxonomyCacheKey)
+    storage.removeItem(key)
   }
   return null
+}
+
+export function writeVersionedCache(storage: Storage, key: string, data: unknown) {
+  try { storage.setItem(key, JSON.stringify({ cachedAt: Date.now(), data })) } catch { /* Storage may be unavailable. */ }
+}
+
+function readCachedTaxonomies() {
+  if (typeof window === 'undefined') return null
+  return readVersionedCache(window.localStorage, taxonomyCacheKey, taxonomyCacheTtl, parseTaxonomies)
 }
 
 export const getTaxonomies = async () => {
@@ -74,7 +94,7 @@ export const getTaxonomies = async () => {
   const cached = readCachedTaxonomies()
   if (cached) return cached
   taxonomyRequest = request<unknown>('/taxonomies', { cache: 'no-store' }).then(parseTaxonomies).then((data) => {
-    if (typeof window !== 'undefined') window.localStorage.setItem(taxonomyCacheKey, JSON.stringify({ cachedAt: Date.now(), data }))
+    if (typeof window !== 'undefined') writeVersionedCache(window.localStorage, taxonomyCacheKey, data)
     return data
   }).finally(() => { taxonomyRequest = null })
   return taxonomyRequest
@@ -82,18 +102,12 @@ export const getTaxonomies = async () => {
 
 function readCachedSearch(searchId: string) {
   if (typeof window === 'undefined') return null
-  try {
-    const cached = JSON.parse(window.sessionStorage.getItem(searchCachePrefix + searchId) ?? 'null') as { cachedAt?: number; data?: unknown } | null
-    if (cached?.cachedAt && Date.now() - cached.cachedAt < searchCacheTtl && cached.data) return parseSearchResponse(cached.data)
-  } catch {
-    window.sessionStorage.removeItem(searchCachePrefix + searchId)
-  }
-  return null
+  return readVersionedCache(window.sessionStorage, searchCachePrefix + searchId, searchCacheTtl, parseSearchResponse)
 }
 
 export const cacheSearchResponse = (searchId: string, response: SearchResponse) => {
   if (typeof window === 'undefined') return
-  try { window.sessionStorage.setItem(searchCachePrefix + searchId, JSON.stringify({ cachedAt: Date.now(), data: response })) } catch { /* Storage may be unavailable. */ }
+  writeVersionedCache(window.sessionStorage, searchCachePrefix + searchId, response)
 }
 
 export const searchScholarships = async (input: SearchInput) => parseSearchResponse(await request<unknown>('/search', { method: 'POST', body: JSON.stringify(input), cache: 'no-store' }))

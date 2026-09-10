@@ -22,7 +22,6 @@ export type Scholarship = {
   official_url: string
   last_verified_at: string | null
   eligibility_note?: string | null
-  fields?: string[]
   field_names?: string[]
   programme_names?: string[]
   destinations: string[]
