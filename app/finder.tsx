@@ -17,6 +17,10 @@ type FormState = { origin: string; destinations: string[]; field: string; degree
 type ViewState = 'form' | 'searching' | 'results' | 'error'
 type FinderDraft = FormState & { otherDestinations: string[]; showOtherDestination: boolean }
 const emptyForm: FormState = { origin: '', destinations: [], field: '', degree: [], qualification: '' }
+// Only a handful of destinations are shown as quick-pick chips; the rest of the world stays
+// reachable through the "Somewhere else" search box.
+const PRIMARY_DESTINATION_CODES = ['US', 'GB', 'DE', 'FR', 'AU']
+const MAX_DESTINATION_COUNTRIES = 5
 const label = (options: Option[], code: string) => options.find((item) => item.code === code)?.label ?? code
 const searchProfileKey = (searchId: string) => `edufurther:search-profile:${CONTRACT_VERSION}:` + searchId
 const qualificationKey = (searchId: string) => `edufurther:qualification:${CONTRACT_VERSION}:` + searchId
@@ -57,6 +61,16 @@ function splitDestinations(taxonomies: Taxonomies, targetCountries: string[]) {
 function toggleListValue(list: string[], code: string): string[] {
   const current = Array.isArray(list) ? list : []
   return current.includes(code) ? current.filter((item) => item !== code) : [...current, code]
+}
+// Surface the most popular destinations as quick-pick chips; anything else (and any overflow, in
+// case the backend ever offers fewer than five of the preferred countries) stays reachable via
+// "Somewhere else" so the chip row never needs to show every backend-supported destination.
+function pickPrimaryDestinations(destinations: Option[]): Option[] {
+  const byCode = new Map(destinations.map((item) => [item.code, item] as const))
+  const preferred = PRIMARY_DESTINATION_CODES.map((code) => byCode.get(code)).filter((item): item is Option => Boolean(item))
+  const preferredCodes = new Set(preferred.map((item) => item.code))
+  const filler = destinations.filter((item) => !preferredCodes.has(item.code))
+  return [...preferred, ...filler].slice(0, MAX_DESTINATION_COUNTRIES)
 }
 
 export function Finder({ searchId, selectedScholarshipId }: { searchId?: string; selectedScholarshipId?: string }) {
@@ -125,7 +139,13 @@ export function Finder({ searchId, selectedScholarshipId }: { searchId?: string;
   }, [navigationTick, router])
 
   const update = (key: keyof FormState, value: string | string[]) => setForm((current) => ({ ...current, [key]: value }))
-  const toggleDestination = (code: string) => update('destinations', toggleListValue(form.destinations, code))
+  const primaryDestinations = taxonomies ? pickPrimaryDestinations(taxonomies.destinations) : []
+  // Total destinations picked across the quick-pick chips and the "Somewhere else" search box,
+  // capped at MAX_DESTINATION_COUNTRIES; used to lock out further selection once the cap is hit.
+  const activeOtherDestinations = showOtherDestination ? otherDestinations : []
+  const selectedDestinationCodes = Array.from(new Set([...form.destinations, ...activeOtherDestinations]))
+  const destinationLimitReached = selectedDestinationCodes.length >= MAX_DESTINATION_COUNTRIES
+  const toggleDestination = (code: string) => { if (!form.destinations.includes(code) && destinationLimitReached) return; update('destinations', toggleListValue(form.destinations, code)) }
   const toggleDegree = (code: string) => update('degree', toggleListValue(form.degree, code))
   // A country checked as a primary destination shouldn't also show as a "Somewhere else" chip; derive the
   // visible list instead of mutating otherDestinations so unchecking the primary destination restores it.
@@ -136,7 +156,7 @@ export function Finder({ searchId, selectedScholarshipId }: { searchId?: string;
     event.preventDefault()
     const next: Record<string, string> = {}
     if (!form.origin) next.origin = 'Select your country of origin.'
-    const targetCountries = Array.from(new Set([...form.destinations, ...(showOtherDestination ? otherDestinations : [])]))
+    const targetCountries = selectedDestinationCodes
     if (!targetCountries.length) next.destinations = 'Select at least one destination.'
     if (!form.degree.length) next.degree = 'Select what you are applying for.'
     setValidation(next)
@@ -187,7 +207,7 @@ export function Finder({ searchId, selectedScholarshipId }: { searchId?: string;
   const refineSearch = () => {
     const fallback = activeSearchId ? readSearchProfile(activeSearchId) : null
     const input = lastSubmittedInput.current ?? fallback
-    const targetCountries = Array.from(new Set([...form.destinations, ...(showOtherDestination ? otherDestinations : [])]))
+    const targetCountries = selectedDestinationCodes
     const split = taxonomies ? splitDestinations(taxonomies, targetCountries) : { destinations: targetCountries, otherDestinations: [] }
     const fallbackProgramLevels = input?.program_levels
     writePendingDraft({ origin: form.origin || input?.origin_country || '', field: form.field || input?.field || '', degree: form.degree.length ? form.degree : (Array.isArray(fallbackProgramLevels) ? fallbackProgramLevels : []), qualification: form.qualification, destinations: split.destinations, otherDestinations: split.otherDestinations, showOtherDestination: showOtherDestination || split.otherDestinations.length > 0 })
@@ -198,7 +218,7 @@ export function Finder({ searchId, selectedScholarshipId }: { searchId?: string;
 
   const formPanel = <section className="form-panel" aria-labelledby="form-heading"><form onSubmit={submit} noValidate>
     <label className="form-question">Where are you from? {taxonomies && <CountryCombobox options={taxonomies.countries} value={form.origin} onChange={(code) => update('origin', code)} ariaLabel="Search for your country of origin" ariaInvalid={!!validation.origin} />}<small>Helps us identify scholarships you're eligible to apply for</small>{validation.origin && <em className="error-text">{validation.origin}</em>}</label>
-    <fieldset className="destination-control"><legend>Where do you want to study?</legend><div className="option-grid">{taxonomies?.destinations.map((item) => <label className={`option-chip ${form.destinations.includes(item.code) ? 'selected' : ''}`} key={item.code}><input type="checkbox" checked={form.destinations.includes(item.code)} onChange={() => toggleDestination(item.code)} />{item.label}</label>)}<label className={`option-chip ${!!taxonomies?.destinations.length && form.destinations.length === taxonomies.destinations.length ? 'selected' : ''}`}><input type="checkbox" checked={!!taxonomies?.destinations.length && form.destinations.length === taxonomies.destinations.length} onChange={(event) => update('destinations', event.target.checked ? (taxonomies?.destinations.map((item) => item.code) ?? []) : [])} />I'm open to any of these</label><div className={`option-chip ${showOtherDestination ? 'selected' : ''}`} role="checkbox" aria-checked={showOtherDestination} tabIndex={0} onPointerDown={(event) => { event.preventDefault(); toggleOtherDestination() }} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggleOtherDestination() } }}>Somewhere else</div></div>{showOtherDestination && taxonomies && <><div className="country-selections" aria-label="Selected alternate destination countries">{visibleOtherDestinations.map((code) => <span className="country-selection" key={code}>{label(taxonomies.countries, code)}<button type="button" aria-label={'Remove ' + label(taxonomies.countries, code)} onClick={() => setOtherDestinations((current) => current.filter((item) => item !== code))}>{'\u00d7'}</button></span>)}</div><CountryCombobox options={taxonomies.countries} value="" ariaLabel="Search for another destination country" clearOnSelect clearValueOnSearch={false} excludeCodes={[...otherDestinations, ...form.destinations]} onChange={(code) => setOtherDestinations((current) => current.includes(code) ? current : [...current, code])} /></>}{validation.destinations && <em className="error-text">{validation.destinations}</em>}</fieldset>
+    <fieldset className="destination-control"><legend>Where do you want to study?<small>Choose up to {MAX_DESTINATION_COUNTRIES} countries in total.</small></legend><div className="option-grid">{primaryDestinations.map((item) => <label className={`option-chip ${form.destinations.includes(item.code) ? 'selected' : ''}`} key={item.code}><input type="checkbox" checked={form.destinations.includes(item.code)} disabled={!form.destinations.includes(item.code) && destinationLimitReached} onChange={() => toggleDestination(item.code)} />{item.label}</label>)}<label className={`option-chip ${!!primaryDestinations.length && form.destinations.length === primaryDestinations.length ? 'selected' : ''}`}><input type="checkbox" checked={!!primaryDestinations.length && form.destinations.length === primaryDestinations.length} disabled={form.destinations.length !== primaryDestinations.length && activeOtherDestinations.length > 0} onChange={(event) => update('destinations', event.target.checked ? primaryDestinations.map((item) => item.code) : [])} />I'm open to any of these</label><div className={`option-chip ${showOtherDestination ? 'selected' : ''}`} role="checkbox" aria-checked={showOtherDestination} tabIndex={0} onPointerDown={(event) => { event.preventDefault(); toggleOtherDestination() }} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggleOtherDestination() } }}>Somewhere else</div></div>{showOtherDestination && taxonomies && <><div className="country-selections" aria-label="Selected alternate destination countries">{visibleOtherDestinations.map((code) => <span className="country-selection" key={code}>{label(taxonomies.countries, code)}<button type="button" aria-label={'Remove ' + label(taxonomies.countries, code)} onClick={() => setOtherDestinations((current) => current.filter((item) => item !== code))}>{'\u00d7'}</button></span>)}</div>{!destinationLimitReached && <CountryCombobox options={taxonomies.countries} value="" ariaLabel="Search for another destination country" clearOnSelect clearValueOnSearch={false} excludeCodes={[...otherDestinations, ...form.destinations]} onChange={(code) => { if (selectedDestinationCodes.length >= MAX_DESTINATION_COUNTRIES) return; setOtherDestinations((current) => current.includes(code) ? current : [...current, code]) }} />}</>}{destinationLimitReached && <em className="error-text" role="status">You've reached the limit of {MAX_DESTINATION_COUNTRIES} countries. Remove one to add another.</em>}{validation.destinations && <em className="error-text">{validation.destinations}</em>}</fieldset>
     <label className="form-question">What do you want to study? <select value={form.field} onChange={(event) => update('field', event.target.value)}><option value="">Select your field of study</option>{taxonomies?.fields.map((item) => <option value={item.code} key={item.code}>{item.label}</option>)}</select></label>
     <fieldset className="choice-control"><legend>What is your highest level of qualification?</legend><div className="option-grid">{[{ code: 'hnd', label: 'HND' }, { code: 'bachelors', label: "Bachelor's degree" }, { code: 'masters', label: "Master's degree" }, { code: 'doctorate', label: 'Doctoral Programme' }].map((item) => <label className={`option-chip ${form.qualification === item.code ? 'selected' : ''}`} key={item.code}><input type="radio" name="qualification" checked={form.qualification === item.code} onChange={() => update('qualification', item.code)} />{item.label}</label>)}</div></fieldset>
     <fieldset className="choice-control"><legend>What are you applying for?</legend><div className="option-grid">{taxonomies?.degrees.map((item) => <label className={`option-chip ${form.degree.includes(item.code) ? 'selected' : ''}`} key={item.code}><input type="checkbox" name="degree" value={item.code} checked={form.degree.includes(item.code)} onChange={() => toggleDegree(item.code)} />{item.label}</label>)}</div>{validation.degree && <em className="error-text">{validation.degree}</em>}</fieldset>
