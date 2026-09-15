@@ -1,0 +1,616 @@
+.admin-shell {
+  min-height: 100vh;
+  background: var(--color-brand-page);
+  font-family: var(--font-sans);
+  color: var(--color-brand-ink);
+}
+
+.admin-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-6);
+  background: var(--color-brand-surface);
+  border-bottom: 1px solid var(--color-brand-line);
+}
+
+.admin-header-title {
+  font-weight: 700;
+}
+
+.admin-nav {
+  display: flex;
+  gap: var(--space-4);
+}
+
+.admin-nav a {
+  color: var(--color-brand-ink);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.admin-nav a:hover {
+  color: var(--color-brand-blue);
+}
+
+.admin-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.admin-header-name {
+  color: var(--color-brand-muted);
+  font-size: 0.9rem;
+}
+
+.admin-signout {
+  border: 1px solid var(--color-brand-line);
+  background: var(--color-brand-surface);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+}
+
+.admin-signout:hover {
+  border-color: var(--color-brand-muted);
+}
+
+.admin-content {
+  padding: var(--space-6);
+}
+
+.admin-placeholder {
+  max-width: var(--content-form);
+  margin: var(--space-10) auto;
+  text-align: center;
+}
+
+.admin-auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+}
+
+.admin-auth-card {
+  width: 100%;
+  max-width: var(--content-form);
+  background: var(--color-brand-surface);
+  border: 1px solid var(--color-brand-line);
+  border-radius: var(--radius-md);
+  padding: var(--space-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.admin-auth-title {
+  margin: 0;
+}
+
+.admin-auth-subtitle {
+  margin: 0;
+  color: var(--color-brand-muted);
+}
+
+.admin-auth-error {
+  margin: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  background: #fdecea;
+  color: #b3261e;
+}
+
+.admin-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: 0.9rem;
+}
+
+.admin-field input {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-brand-line);
+  border-radius: var(--radius-sm);
+  font-size: 1rem;
+  font-family: inherit;
+}
+
+.admin-field input:focus {
+  outline: 2px solid var(--color-brand-blue);
+  outline-offset: 1px;
+}
+
+.admin-auth-submit {
+  margin-top: var(--space-2);
+  padding: var(--space-3);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--color-brand-blue);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.admin-auth-submit:hover {
+  background: var(--color-brand-blue-dark);
+}
+
+.admin-status {
+  color: var(--color-brand-muted);
+}
+
+.admin-queue-header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.admin-queue-header h1 {
+  margin: 0;
+}
+
+.admin-queue-header p {
+  margin: 0;
+  color: var(--color-brand-muted);
+}
+
+.admin-link-button {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--color-brand-blue);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.admin-link-button:hover {
+  text-decoration: underline;
+}
+
+.admin-bulk-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+  background: var(--color-brand-surface);
+  border: 1px solid var(--color-brand-line);
+  border-radius: var(--radius-sm);
+}
+
+.admin-bulk-bar input[type='text'] {
+  flex: 1;
+  min-width: 200px;
+  padding: var(--space-2);
+  border: 1px solid var(--color-brand-line);
+  border-radius: var(--radius-sm);
+  font: inherit;
+}
+
+.admin-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--color-brand-line);
+  border-radius: var(--radius-sm);
+  background: var(--color-brand-surface);
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.admin-table th,
+.admin-table td {
+  padding: var(--space-3);
+  text-align: left;
+  border-bottom: 1px solid var(--color-brand-line);
+  vertical-align: top;
+}
+
+.admin-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.admin-cell-title {
+  max-width: 480px;
+}
+
+.admin-cell-excerpt {
+  margin: var(--space-1) 0 0;
+  color: var(--color-brand-muted);
+  font-size: 0.85rem;
+  /* Real discovery excerpts run to ~1,300 characters (some over 2,500).
+     Unclamped, a single 50-row page is ~26 screens tall. The full text is
+     one click away in the decision modal, so the row only needs a preview. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.admin-modal {
+  width: min(664px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  margin: auto;
+  padding: 0;
+  border: 1px solid var(--color-brand-line);
+  border-radius: var(--radius-sm);
+  color: var(--color-brand-ink);
+  box-shadow: 0 18px 60px rgba(25, 43, 61, 0.2);
+}
+
+.admin-modal::backdrop {
+  background: rgba(25, 43, 61, 0.4);
+}
+
+.admin-modal-inner {
+  padding: var(--space-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.admin-modal-header {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+  border-bottom: 1px solid var(--color-brand-line);
+  padding-bottom: var(--space-4);
+}
+
+.admin-modal-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.admin-modal-excerpt {
+  margin: 0;
+  color: var(--color-brand-muted);
+}
+
+/* Scraped excerpts run past 2,500 characters, so the reviewer needs a
+   readable measure and a bounded, scrollable region rather than a wall of
+   text that pushes the decision controls off screen. */
+.admin-excerpt {
+  max-height: 260px;
+  overflow-y: auto;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-brand-page);
+  border: 1px solid var(--color-brand-line);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  line-height: 1.65;
+}
+
+/* The panel is keyboard focusable so it can be scrolled without a mouse;
+   it needs a visible indicator to match. */
+.admin-excerpt:focus-visible {
+  outline: 2px solid var(--color-brand-blue);
+  outline-offset: 2px;
+}
+
+.admin-excerpt p {
+  margin: 0 0 var(--space-3);
+  color: var(--color-brand-ink);
+  max-width: 68ch;
+}
+
+.admin-excerpt p:last-child {
+  margin-bottom: 0;
+}
+
+.admin-excerpt-subhead {
+  font-weight: 600;
+}
+
+/* Marks where the scraper dropped a section, so two unrelated passages are
+   not read as continuous prose. */
+.admin-excerpt-gap {
+  color: var(--color-brand-muted);
+  letter-spacing: 0.3em;
+  user-select: none;
+}
+
+.admin-modal-source {
+  align-self: flex-start;
+}
+
+.admin-decision-toggle {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.admin-decision-toggle button {
+  flex: 1;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-brand-line);
+  border-radius: var(--radius-sm);
+  background: var(--color-brand-surface);
+  cursor: pointer;
+}
+
+.admin-decision-toggle button.active {
+  background: var(--color-brand-ink);
+  color: #fff;
+  border-color: var(--color-brand-ink);
+}
+
+.admin-form-grid {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.admin-field textarea,
+.admin-field select {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-brand-line);
+  border-radius: var(--radius-sm);
+  font: inherit;
+}
+
+.admin-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+.admin-modal-actions button {
+  /* min-width keeps Cancel and the submit button the same size despite the
+     submit button's heavier font weight and longer labels. Sized for the
+     longest in-flight label ("Withdrawing…", 145px) so the button does not
+     resize when the label swaps mid-request. */
+  min-width: 150px;
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-brand-line);
+  border-radius: var(--radius-sm);
+  background: var(--color-brand-surface);
+  cursor: pointer;
+}
+
+/* .admin-modal-actions button above matches every button in the footer,
+   including the submit button - these compound selectors need to win on
+   specificity (not just source order) or the submit button silently
+   inherits a white background under its white text. */
+.admin-modal-actions button.admin-auth-submit {
+  background: var(--color-brand-blue);
+  border-color: var(--color-brand-blue);
+  color: #fff;
+}
+
+.admin-modal-actions button.admin-auth-submit:hover {
+  background: var(--color-brand-blue-dark);
+}
+
+.admin-modal-actions button.admin-danger-button {
+  background: #b3261e;
+  border-color: #b3261e;
+  color: #fff;
+}
+
+.admin-modal-actions button.admin-danger-button:hover {
+  background: #8c1d17;
+}
+
+.admin-provider-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.admin-inline-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px dashed var(--color-brand-line);
+  border-radius: var(--radius-sm);
+}
+
+.admin-inline-form-actions {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.admin-danger-button {
+  background: #b3261e;
+  color: #fff;
+  border-color: #b3261e;
+}
+
+.admin-danger-button:hover {
+  background: #8c1d17;
+}
+
+.admin-danger-link {
+  color: #b3261e;
+}
+
+.admin-link-button:disabled,
+.admin-danger-link:disabled {
+  color: var(--color-brand-muted);
+  cursor: not-allowed;
+  text-decoration: none;
+}
+
+.admin-badge {
+  display: inline-block;
+  padding: 2px var(--space-2);
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+/* Badge text is ~12.5px, so it needs the full 4.5:1 rather than the 3:1
+   large-text allowance. The brand success green (#087f5b) lands at 4.45:1 on
+   this tint and fails; these darker values clear it with headroom. */
+.admin-badge-positive {
+  background: #e3f6ee;
+  color: #076f50;
+}
+
+.admin-badge-warning {
+  background: #fdf3dc;
+  color: #93650b;
+}
+
+.admin-badge-negative {
+  background: #fdecea;
+  color: #b3261e;
+}
+
+.admin-badge-neutral {
+  background: var(--color-brand-page);
+  /* --color-brand-muted is only 4.50:1 here - too close to the line. */
+  color: #5f656d;
+}
+
+.admin-badge-muted {
+  background: transparent;
+  color: #5f656d;
+  font-weight: 400;
+}
+
+.admin-cycle-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: 0.85rem;
+}
+
+.admin-row-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  align-items: flex-start;
+}
+
+.admin-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+  padding: var(--space-4);
+  background: var(--color-brand-surface);
+  border: 1px solid var(--color-brand-line);
+  border-radius: var(--radius-sm);
+}
+
+.admin-filter-search {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.admin-filter-search input {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-brand-line);
+  border-radius: var(--radius-sm);
+  font: inherit;
+}
+
+.admin-filter-field {
+  min-width: 200px;
+}
+
+.admin-filter-field select {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-brand-line);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  width: 100%;
+}
+
+.admin-form-section {
+  border-top: 1px solid var(--color-brand-line);
+  padding-top: var(--space-4);
+}
+
+.admin-form-section:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+
+.admin-form-section h3 {
+  margin: 0 0 var(--space-3);
+  font-size: 0.95rem;
+}
+
+.admin-field select[multiple] {
+  padding: var(--space-2);
+  border: 1px solid var(--color-brand-line);
+  border-radius: var(--radius-sm);
+  font: inherit;
+}
+
+.admin-hint {
+  color: var(--color-brand-muted);
+  font-size: 0.8rem;
+}
+
+/* Matches the visual weight of the <span> inside .admin-field labels, for the
+   grouped fields that cannot be a <label> (they own more than one control). */
+.admin-field-label {
+  font-size: 0.9rem;
+}
+
+.admin-multiselect {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.admin-multiselect-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: 0.8rem;
+  color: var(--color-brand-muted);
+}
+
+/* Real cycles select a median of 43 origin countries (max 140), so the chip
+   list needs to stay bounded instead of pushing the rest of the form away. */
+.admin-multiselect-chips {
+  max-height: 132px;
+  overflow-y: auto;
+}
+
+.admin-modal-narrow {
+  width: min(480px, calc(100vw - 32px));
+}
+
+.admin-toast {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+  background: #e3f6ee;
+  border: 1px solid var(--color-brand-success);
+  border-radius: var(--radius-sm);
+}
+
+.admin-toast button:not(.admin-link-button) {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-brand-success);
+  border-radius: var(--radius-sm);
+  background: var(--color-brand-success);
+  color: #fff;
+  cursor: pointer;
+}
