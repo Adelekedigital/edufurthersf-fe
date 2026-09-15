@@ -238,6 +238,47 @@
   overflow: hidden;
 }
 
+/* Review panel: non-modal, so the queue beside it stays readable and
+   clickable while a candidate is open. */
+.admin-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 460px;
+  z-index: 20;
+  overflow-y: auto;
+  background: var(--color-brand-surface);
+  border-left: 1px solid var(--color-brand-line);
+  box-shadow: -8px 0 28px rgba(25, 43, 61, 0.1);
+}
+
+.admin-drawer-inner {
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* Reserve the panel's width so the table is never hidden underneath it -
+   seeing the list while deciding is the whole point of the panel. */
+.admin-review-queue-with-drawer {
+  margin-right: 476px;
+}
+
+@media (max-width: 900px) {
+  .admin-drawer {
+    width: 100%;
+    border-left: none;
+  }
+
+  /* No room to sit alongside at this width, so the panel covers the list and
+     the queue keeps its full width underneath. */
+  .admin-review-queue-with-drawer {
+    margin-right: 0;
+  }
+}
+
 .admin-modal {
   width: min(664px, calc(100vw - 32px));
   max-height: calc(100vh - 32px);

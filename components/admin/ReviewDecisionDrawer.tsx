@@ -15,7 +15,7 @@ function slugify(value: string): string {
     .replace(/^-+|-+$/g, '')
 }
 
-type ReviewDecisionModalProps = {
+type ReviewDecisionDrawerProps = {
   task: ReviewTaskSummary
   reviewerName: string
   providers: ProviderRead[]
@@ -25,8 +25,18 @@ type ReviewDecisionModalProps = {
   onDecided: (reviewTaskId: string, decision: ReviewDecision, result: ReviewDecisionResponse, approvedInfo?: { canonicalName: string; officialHomeUrl: string }) => void
 }
 
-export function ReviewDecisionModal({ task, reviewerName, providers, awardTypes, onProviderCreated, onClose, onDecided }: ReviewDecisionModalProps) {
-  const dialogRef = useRef<HTMLDialogElement>(null)
+/** Side panel for reviewing one candidate.
+ *
+ * Deliberately non-modal: the point is to keep the queue readable and
+ * clickable so a reviewer can work straight down 800+ items without the
+ * panel closing and losing their place between each one. That rules out
+ * <dialog>.showModal(), which makes the rest of the page inert.
+ *
+ * The parent keys this by review_task_id so switching rows remounts it -
+ * otherwise the previous candidate's typed reason and provider would carry
+ * over into the next decision.
+ */
+export function ReviewDecisionDrawer({ task, reviewerName, providers, awardTypes, onProviderCreated, onClose, onDecided }: ReviewDecisionDrawerProps) {
   const reasonRef = useRef<HTMLTextAreaElement>(null)
   const [decision, setDecision] = useState<ReviewDecision>('reject')
   const [providerId, setProviderId] = useState('')
@@ -40,23 +50,24 @@ export function ReviewDecisionModal({ task, reviewerName, providers, awardTypes,
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const dialog = dialogRef.current
-    if (!dialog) return
     const previouslyFocused = document.activeElement as HTMLElement | null
-    dialog.showModal()
-    // React's autoFocus prop calls .focus() at commit time, before elements
-    // inside a <dialog> are focusable (that only happens once showModal()
-    // runs) - it silently no-ops, and showModal() then defaults focus to the
-    // first focusable descendant (the close button). Focus explicitly here
-    // instead, after the dialog is actually open.
     reasonRef.current?.focus()
     return () => {
-      if (dialog.open) dialog.close()
-      // Native <dialog> doesn't restore focus to the trigger on its own -
-      // without this, a keyboard user closing the modal lands on <body>.
+      // Nothing traps focus here, so returning it to the row that opened the
+      // panel is what keeps keyboard users from landing back on <body>.
       previouslyFocused?.focus()
     }
   }, [])
+
+  useEffect(() => {
+    // Document-level rather than on the panel: focus may well be back in the
+    // list (that is the point of a non-modal panel) when Escape is pressed.
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [onClose])
 
   const handleCanonicalNameChange = (value: string) => {
     setCanonicalName(value)
@@ -93,11 +104,11 @@ export function ReviewDecisionModal({ task, reviewerName, providers, awardTypes,
   }
 
   return (
-    <dialog className="admin-modal" ref={dialogRef} aria-labelledby="review-decision-title" onCancel={(event) => { event.preventDefault(); onClose() }}>
-      <div className="admin-modal-inner">
+    <aside className="admin-drawer" aria-label={`Review: ${task.raw_title ?? 'Untitled candidate'}`}>
+      <div className="admin-drawer-inner">
         <header className="admin-modal-header">
-          <h2 id="review-decision-title">{task.raw_title ?? 'Untitled candidate'}</h2>
-          <button className="modal-close" type="button" aria-label="Close" onClick={onClose}>{'×'}</button>
+          <h2>{task.raw_title ?? 'Untitled candidate'}</h2>
+          <button className="modal-close" type="button" aria-label="Close review panel" onClick={onClose}>{'×'}</button>
         </header>
 
         {task.raw_excerpt ? <ExcerptText text={task.raw_excerpt} /> : null}
@@ -150,6 +161,6 @@ export function ReviewDecisionModal({ task, reviewerName, providers, awardTypes,
           </button>
         </div>
       </div>
-    </dialog>
+    </aside>
   )
 }

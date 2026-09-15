@@ -127,7 +127,7 @@ test.describe('admin accessibility', () => {
     await expectNoSeriousViolations(page)
   })
 
-  test('review decision modal has no serious a11y violations', async ({ page }) => {
+  test('review decision panel has no serious a11y violations', async ({ page }) => {
     await page.goto('/admin/reviews')
     await page.getByRole('button', { name: 'Example Merit Scholarship' }).click()
     await expect(page.getByRole('radio', { name: 'Approve' })).toBeVisible()
@@ -135,7 +135,7 @@ test.describe('admin accessibility', () => {
     await expectNoSeriousViolations(page)
   })
 
-  test('decision modal renders scraped excerpts as readable blocks', async ({ page }) => {
+  test('review panel renders scraped excerpts as readable blocks', async ({ page }) => {
     await page.goto('/admin/reviews')
     await page.getByRole('button', { name: 'Example Merit Scholarship' }).click()
     const excerpt = page.locator('.admin-excerpt')
@@ -155,6 +155,64 @@ test.describe('admin accessibility', () => {
     // Bounded so the decision controls stay reachable.
     const box = await excerpt.boundingBox()
     expect(box!.height).toBeLessThanOrEqual(300)
+  })
+
+  test('review panel is non-modal: the queue stays readable and clickable', async ({ page }) => {
+    await page.viewportSize()
+    await page.setViewportSize({ width: 1440, height: 1000 })
+    await page.goto('/admin/reviews')
+    await page.getByRole('button', { name: 'Example Merit Scholarship' }).click()
+    await expect(page.locator('.admin-drawer')).toBeVisible()
+
+    // The row that is still in the list must remain reachable - that is the
+    // whole reason this is a panel and not a modal.
+    const otherRow = page.getByRole('button', { name: 'Low Priority Candidate' })
+    await expect(otherRow).toBeVisible()
+    const table = page.locator('.admin-table-wrap')
+    const tableBox = await table.boundingBox()
+    const drawerBox = await page.locator('.admin-drawer').boundingBox()
+    expect(tableBox!.x + tableBox!.width).toBeLessThanOrEqual(drawerBox!.x + 1)
+
+    // Clicking straight through to another candidate swaps the panel.
+    await otherRow.click()
+    await expect(page.locator('.admin-drawer')).toContainText('Low Priority Candidate')
+  })
+
+  test('switching candidates does not carry the previous decision over', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 1000 })
+    await page.goto('/admin/reviews')
+    await page.getByRole('button', { name: 'Example Merit Scholarship' }).click()
+    const reason = page.locator('.admin-drawer textarea')
+    await reason.fill('Reason typed against the first candidate')
+    await page.getByRole('radio', { name: 'Approve' }).click()
+
+    await page.getByRole('button', { name: 'Low Priority Candidate' }).click()
+    // Fresh candidate, fresh decision: reason cleared and back to Reject.
+    await expect(page.locator('.admin-drawer textarea')).toHaveValue('')
+    await expect(page.getByRole('radio', { name: 'Reject' })).toHaveAttribute('aria-checked', 'true')
+  })
+
+  test('review panel goes full width when there is no room beside the list', async ({ page }) => {
+    await page.setViewportSize({ width: 700, height: 900 })
+    await page.goto('/admin/reviews')
+    await page.getByRole('button', { name: 'Example Merit Scholarship' }).click()
+    const drawer = page.locator('.admin-drawer')
+    await expect(drawer).toBeVisible()
+    const box = await drawer.boundingBox()
+    expect(box!.width).toBeGreaterThanOrEqual(700 - 2)
+    // The queue must not keep reserving space it cannot use at this width.
+    await expect(page.locator('.admin-review-queue')).toHaveCSS('margin-right', '0px')
+  })
+
+  test('escape closes the panel and returns focus to the row', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 1000 })
+    await page.goto('/admin/reviews')
+    const trigger = page.getByRole('button', { name: 'Example Merit Scholarship' })
+    await trigger.click()
+    await expect(page.locator('.admin-drawer')).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.locator('.admin-drawer')).toHaveCount(0)
+    await expect(trigger).toBeFocused()
   })
 
   test('scholarships list has no serious a11y violations', async ({ page }) => {
