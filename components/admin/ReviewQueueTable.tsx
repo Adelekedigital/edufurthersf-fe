@@ -216,7 +216,8 @@ export function ReviewQueueTable({ reviewerName }: { reviewerName: string }) {
             placeholder="Reason for rejecting all selected"
             aria-label="Reason for bulk rejection"
           />
-          <button type="button" onClick={bulkReject} disabled={bulkSubmitting || !bulkReason.trim()}>
+          {/* Destructive, and irreversible for up to ten records at once. */}
+          <button type="button" className="admin-danger-button" onClick={bulkReject} disabled={bulkSubmitting || !bulkReason.trim()}>
             {bulkSubmitting ? 'Rejecting…' : 'Reject selected'}
           </button>
           {bulkError ? <span className="admin-auth-error" role="alert">{bulkError}</span> : null}
@@ -257,7 +258,7 @@ export function ReviewQueueTable({ reviewerName }: { reviewerName: string }) {
       {publishPrompt && !publishModalOpen ? (
         <div className="admin-toast">
           <span>Approved. Publish a cycle for &quot;{publishPrompt.scholarshipName}&quot; now?</span>
-          <button type="button" onClick={() => setPublishModalOpen(true)}>Publish now</button>
+          <button type="button" className="admin-auth-submit" onClick={() => setPublishModalOpen(true)}>Publish now</button>
           <button type="button" className="admin-link-button" onClick={() => setPublishPrompt(null)}>Dismiss</button>
         </div>
       ) : null}
@@ -271,6 +272,7 @@ export function ReviewQueueTable({ reviewerName }: { reviewerName: string }) {
           reviewerName={reviewerName}
           providers={providers}
           awardTypes={taxonomies?.award_types ?? []}
+          countries={taxonomies?.countries ?? []}
           onProviderCreated={(provider) => setProviders((current) => [...current, provider])}
           onClose={() => setActiveTask(null)}
           onDecided={(reviewTaskId, decision, result: ReviewDecisionResponse, approvedInfo) => {

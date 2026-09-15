@@ -26,11 +26,16 @@ export function CountryCombobox({ options, value, onChange, ariaLabel, ariaInval
   const filtered = useMemo(() => options.filter((option) => !excluded.has(option.code) && option.label.toLowerCase().includes(query.toLowerCase())), [excluded, options, query])
 
   useEffect(() => {
-    const handleOutsidePointer = (event: PointerEvent) => {
+    // 'click', not 'pointerdown': the option list sits in flow, so closing it
+    // reflows everything below by its height. On pointerdown that reflow lands
+    // between mousedown and mouseup, which moves the element being clicked out
+    // from under the pointer and the click is delivered to whatever slid into
+    // its place. Closing on click happens after the click has been delivered.
+    const handleOutsideClick = (event: MouseEvent) => {
       if (!rootRef.current?.contains(event.target as Node)) setOpen(false)
     }
-    document.addEventListener('pointerdown', handleOutsidePointer)
-    return () => document.removeEventListener('pointerdown', handleOutsidePointer)
+    document.addEventListener('click', handleOutsideClick)
+    return () => document.removeEventListener('click', handleOutsideClick)
   }, [])
 
   const select = (code: string) => {

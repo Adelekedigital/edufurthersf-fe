@@ -4,7 +4,7 @@ import { useRef, useState } from 'react'
 import { decideReview } from '../../app/admin/api'
 import type { AdminApiError, ProviderRead, ReviewDecision, ReviewDecisionResponse, ReviewTaskSummary } from '../../app/admin/types'
 import type { Option } from '../../app/types'
-import { Drawer } from './Drawer'
+import { Drawer, PanelActions, PanelBody } from './Drawer'
 import { ExcerptText } from './ExcerptText'
 import { ProviderPicker } from './ProviderPicker'
 
@@ -21,6 +21,7 @@ type ReviewDecisionDrawerProps = {
   reviewerName: string
   providers: ProviderRead[]
   awardTypes: Option[]
+  countries: Option[]
   onProviderCreated: (provider: ProviderRead) => void
   onClose: () => void
   onDecided: (reviewTaskId: string, decision: ReviewDecision, result: ReviewDecisionResponse, approvedInfo?: { canonicalName: string; officialHomeUrl: string }) => void
@@ -37,7 +38,7 @@ type ReviewDecisionDrawerProps = {
  * otherwise the previous candidate's typed reason and provider would carry
  * over into the next decision.
  */
-export function ReviewDecisionDrawer({ task, reviewerName, providers, awardTypes, onProviderCreated, onClose, onDecided }: ReviewDecisionDrawerProps) {
+export function ReviewDecisionDrawer({ task, reviewerName, providers, awardTypes, countries, onProviderCreated, onClose, onDecided }: ReviewDecisionDrawerProps) {
   const reasonRef = useRef<HTMLTextAreaElement>(null)
   const [decision, setDecision] = useState<ReviewDecision>('reject')
   const [providerId, setProviderId] = useState('')
@@ -86,20 +87,39 @@ export function ReviewDecisionDrawer({ task, reviewerName, providers, awardTypes
 
   return (
     <Drawer title={task.raw_title ?? 'Untitled candidate'} initialFocusRef={reasonRef} onClose={onClose}>
+      {/* Which decision you are making is a choice of view, so it pins to the
+          top like tabs. The buttons that commit it sit down in the body with
+          the evidence and the reason they apply to. */}
+      <div className="admin-decision-toggle" role="radiogroup" aria-label="Decision">
+        <button type="button" role="radio" aria-checked={decision === 'reject'} className={decision === 'reject' ? 'active' : ''} onClick={() => setDecision('reject')}>Reject</button>
+        <button type="button" role="radio" aria-checked={decision === 'approve'} className={decision === 'approve' ? 'active' : ''} onClick={() => setDecision('approve')}>Approve</button>
+      </div>
+
+      <PanelBody>
+        {error ? <p className="admin-auth-error" role="alert">{error}</p> : null}
+
         {task.raw_excerpt ? <ExcerptText text={task.raw_excerpt} /> : null}
         {task.source_url ? <a href={task.source_url} target="_blank" rel="noreferrer" className="admin-panel-source">View source</a> : null}
 
-        <div className="admin-decision-toggle" role="radiogroup" aria-label="Decision">
-          <button type="button" role="radio" aria-checked={decision === 'reject'} className={decision === 'reject' ? 'active' : ''} onClick={() => setDecision('reject')}>Reject</button>
-          <button type="button" role="radio" aria-checked={decision === 'approve'} className={decision === 'approve' ? 'active' : ''} onClick={() => setDecision('approve')}>Approve</button>
-        </div>
+        <PanelActions>
+          <button type="button" onClick={onClose} disabled={submitting}>Cancel</button>
+          <button type="button" className="admin-auth-submit" onClick={submit} disabled={!canSubmit || submitting}>
+            {submitting ? 'Saving…' : decision === 'approve' ? 'Approve' : 'Reject'}
+          </button>
+        </PanelActions>
 
         {decision === 'approve' ? (
           <div className="admin-form-grid">
-            <label className="admin-field">
-              <span>Provider</span>
-              <ProviderPicker providers={providers} value={providerId} onChange={setProviderId} onProviderCreated={onProviderCreated} />
-            </label>
+            {/* Not a <label>: it wraps a search input, a "add a new provider"
+                button and that button's whole form. A label forwards every
+                click inside it to its first control, so clicking anything in
+                here was landing on the provider search box instead - toggling
+                its dropdown open, taking focus, and shifting the form under
+                the pointer mid-click. The combobox carries its own aria-label. */}
+            <div className="admin-field">
+              <span className="admin-field-label">Provider</span>
+              <ProviderPicker providers={providers} value={providerId} onChange={setProviderId} onProviderCreated={onProviderCreated} countries={countries} />
+            </div>
             <label className="admin-field">
               <span>Canonical name</span>
               <input type="text" value={canonicalName} onChange={(event) => handleCanonicalNameChange(event.target.value)} />
@@ -124,17 +144,11 @@ export function ReviewDecisionDrawer({ task, reviewerName, providers, awardTypes
 
         <label className="admin-field admin-field-reason">
           <span>Reason{decision === 'approve' ? ' (internal note)' : ''}</span>
-          <textarea ref={reasonRef} value={reason} onChange={(event) => setReason(event.target.value)} rows={3} />
+          {/* Rejecting makes this the only thing being written, so it gets the
+              room the approve fields would otherwise be using. */}
+          <textarea ref={reasonRef} value={reason} onChange={(event) => setReason(event.target.value)} rows={decision === 'approve' ? 3 : 8} />
         </label>
-
-        {error ? <p className="admin-auth-error" role="alert">{error}</p> : null}
-
-        <div className="admin-panel-actions">
-          <button type="button" onClick={onClose} disabled={submitting}>Cancel</button>
-          <button type="button" className="admin-auth-submit" onClick={submit} disabled={!canSubmit || submitting}>
-            {submitting ? 'Saving…' : decision === 'approve' ? 'Approve' : 'Reject'}
-          </button>
-        </div>
+      </PanelBody>
     </Drawer>
   )
 }

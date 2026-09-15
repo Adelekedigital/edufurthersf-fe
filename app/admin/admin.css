@@ -46,14 +46,7 @@
   font-size: 0.9rem;
 }
 
-.admin-signout {
-  border: 1px solid var(--color-brand-line);
-  background: var(--color-brand-surface);
-  border-radius: var(--radius-sm);
-  padding: var(--space-2) var(--space-3);
-  cursor: pointer;
-}
-
+/* Shape comes from the shared button rules below; only the hover differs. */
 .admin-signout:hover {
   border-color: var(--color-brand-muted);
 }
@@ -125,19 +118,68 @@
   outline-offset: 1px;
 }
 
-.admin-auth-submit {
-  margin-top: var(--space-2);
-  padding: var(--space-3);
-  border: none;
+/* ---- Buttons -------------------------------------------------------------
+   One shape for every real button in the admin UI; a variant changes only
+   colour. Before this the filter row, the bulk bar and the add-provider form
+   rendered browser-default buttons next to styled ones, the three filled
+   variants each had their own padding, and nothing styled :disabled - so a
+   blocked "Publish" looked exactly like a live one.
+
+   The context selectors are wrapped in :where() so they carry no specificity
+   and a variant class beats them by class alone, rather than needing a
+   compound selector per context. Link buttons and the decision tabs are not
+   part of this system and opt out by not matching. */
+:where(.admin-panel-actions, .admin-inline-form-actions, .admin-filter-search, .admin-bulk-bar, .admin-toast) button:not(:where(.admin-link-button)),
+.admin-signout,
+.admin-auth-submit,
+.admin-danger-button {
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-brand-line);
   border-radius: var(--radius-sm);
-  background: var(--color-brand-blue);
-  color: #fff;
+  background: var(--color-brand-surface);
+  color: var(--color-brand-ink);
+  font: inherit;
   font-weight: 600;
   cursor: pointer;
 }
 
+.admin-auth-submit {
+  background: var(--color-brand-blue);
+  border-color: var(--color-brand-blue);
+  color: #fff;
+}
+
 .admin-auth-submit:hover {
   background: var(--color-brand-blue-dark);
+  border-color: var(--color-brand-blue-dark);
+}
+
+.admin-danger-button {
+  background: #b3261e;
+  border-color: #b3261e;
+  color: #fff;
+}
+
+.admin-danger-button:hover {
+  background: #8c1d17;
+  border-color: #8c1d17;
+}
+
+/* :disabled outranks the variant classes on specificity, so a blocked submit
+   drops its fill instead of staying a solid, clickable-looking blue. */
+:where(.admin-panel-actions, .admin-inline-form-actions, .admin-filter-search, .admin-bulk-bar, .admin-toast) button:disabled,
+.admin-auth-submit:disabled,
+.admin-danger-button:disabled {
+  background: var(--color-brand-page);
+  border-color: var(--color-brand-line);
+  color: #5f656d;
+  cursor: not-allowed;
+}
+
+/* The sign-in form stacks full width, unlike every other action bar. */
+.admin-auth-card .admin-auth-submit {
+  margin-top: var(--space-2);
+  padding: var(--space-3);
 }
 
 .admin-status {
@@ -247,20 +289,46 @@
   bottom: 0;
   width: 460px;
   z-index: 20;
-  overflow-y: auto;
+  /* The panel itself does not scroll - .admin-panel-body does - so the header
+     and the action bar stay put while a long form scrolls under them. */
+  overflow: hidden;
   background: var(--color-brand-surface);
   border-left: 1px solid var(--color-brand-line);
   box-shadow: -8px 0 28px rgba(25, 43, 61, 0.1);
 }
 
 .admin-drawer-inner {
-  /* Full height so a flexible field (the reason box) has leftover space to
-     absorb rather than leaving a gap above the actions. */
-  min-height: 100%;
+  height: 100%;
   padding: var(--space-6);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+}
+
+.admin-panel-body {
+  /* min-height:0 is what lets this shrink below its content and scroll -
+     without it a flex item floors at its content height and the action bar
+     above gets pushed off the top of the panel. */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* Children keep their natural height and the body scrolls past them. Without
+   this the body silently squeezes whatever can shrink instead of scrolling -
+   and a child that scrolls (the excerpt, the combobox option list) floors at
+   zero, so the evidence the reviewer is meant to read collapsed to a sliver
+   the moment the approve fields appeared. */
+.admin-panel-body > * {
+  flex-shrink: 0;
+}
+
+.admin-panel-heading {
+  margin: 0;
+  font-size: 1rem;
 }
 
 .admin-drawer:focus-visible {
@@ -283,18 +351,10 @@
   margin-right: 636px;
 }
 
-/* The reason box absorbs whatever height is left, so rejecting - which hides
-   the approve fields - does not leave a dead gap above the buttons. Bounded
-   both ways so it never collapses and never pushes the actions out of reach. */
-.admin-field-reason {
-  flex: 1 1 auto;
-  min-height: 120px;
-  max-height: 420px;
-}
-
+/* Sized per view by the `rows` attribute rather than stretched to fill the
+   panel: rejecting and withdrawing make the reason the main input and get a
+   taller box, approving keeps it the short note it was. Draggable either way. */
 .admin-field-reason textarea {
-  flex: 1 1 auto;
-  min-height: 0;
   resize: vertical;
 }
 
@@ -323,6 +383,7 @@
 }
 
 .admin-panel-header {
+  flex: none;
   display: flex;
   justify-content: space-between;
   gap: var(--space-4);
@@ -387,24 +448,35 @@
   align-self: flex-start;
 }
 
+/* Reads as a row of nav options rather than two competing buttons: the panel
+   already has real buttons pinned above it, and a boxed pair down here looked
+   like a second set of things to press rather than a choice of view. */
 .admin-decision-toggle {
+  /* Pinned above the scrolling body in the review panel, so it must not be
+     shrunk or grown by the flex column it sits in. */
+  flex: none;
   display: flex;
-  gap: var(--space-2);
+  gap: var(--space-5);
+  border-bottom: 1px solid var(--color-brand-line);
 }
 
 .admin-decision-toggle button {
-  flex: 1;
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-brand-line);
-  border-radius: var(--radius-sm);
-  background: var(--color-brand-surface);
+  padding: var(--space-2) 0;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--color-brand-muted);
+  font-weight: 600;
   cursor: pointer;
 }
 
+.admin-decision-toggle button:hover {
+  color: var(--color-brand-ink);
+}
+
 .admin-decision-toggle button.active {
-  background: var(--color-brand-ink);
-  color: #fff;
-  border-color: var(--color-brand-ink);
+  color: var(--color-brand-ink);
+  border-bottom-color: var(--color-brand-ink);
 }
 
 .admin-form-grid {
@@ -420,47 +492,24 @@
   font: inherit;
 }
 
+/* Pinned directly under the panel header rather than at the foot of the form.
+   The publish form is four sections long, so a footer put "Cancel" and
+   "Publish" behind a full scroll of the panel. */
 .admin-panel-actions {
+  flex: none;
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: var(--space-3);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-brand-line);
 }
 
 .admin-panel-actions button {
-  /* min-width keeps Cancel and the submit button the same size despite the
-     submit button's heavier font weight and longer labels. Sized for the
-     longest in-flight label ("Withdrawing…", 145px) so the button does not
-     resize when the label swaps mid-request. */
+  /* Keeps the pair the same size despite the submit button's longer labels.
+     Sized for the longest in-flight label ("Withdrawing…", 145px) so the
+     button does not resize when the label swaps mid-request. */
   min-width: 150px;
-  padding: var(--space-2) var(--space-4);
-  border: 1px solid var(--color-brand-line);
-  border-radius: var(--radius-sm);
-  background: var(--color-brand-surface);
-  cursor: pointer;
-}
-
-/* .admin-panel-actions button above matches every button in the footer,
-   including the submit button - these compound selectors need to win on
-   specificity (not just source order) or the submit button silently
-   inherits a white background under its white text. */
-.admin-panel-actions button.admin-auth-submit {
-  background: var(--color-brand-blue);
-  border-color: var(--color-brand-blue);
-  color: #fff;
-}
-
-.admin-panel-actions button.admin-auth-submit:hover {
-  background: var(--color-brand-blue-dark);
-}
-
-.admin-panel-actions button.admin-danger-button {
-  background: #b3261e;
-  border-color: #b3261e;
-  color: #fff;
-}
-
-.admin-panel-actions button.admin-danger-button:hover {
-  background: #8c1d17;
 }
 
 .admin-provider-picker {
@@ -483,22 +532,7 @@
   gap: var(--space-3);
 }
 
-.admin-danger-button {
-  background: #b3261e;
-  color: #fff;
-  border-color: #b3261e;
-}
-
-.admin-danger-button:hover {
-  background: #8c1d17;
-}
-
-.admin-danger-link {
-  color: #b3261e;
-}
-
-.admin-link-button:disabled,
-.admin-danger-link:disabled {
+.admin-link-button:disabled {
   color: var(--color-brand-muted);
   cursor: not-allowed;
   text-decoration: none;
@@ -554,11 +588,101 @@
   font-size: 0.85rem;
 }
 
-.admin-row-actions {
+/* Ties the open panel back to the row it belongs to. With the actions column
+   gone there is nothing else marking which record is being acted on. */
+.admin-table tbody tr.admin-row-active {
+  background: #eef4ff;
+  box-shadow: inset 3px 0 0 var(--color-brand-blue);
+}
+
+/* --color-brand-muted is 4.33:1 on this tint and fails. Lightening the tint
+   instead only reaches 4.50:1, which is the same margin-of-error the badge
+   colours were already darkened away from, so darken the text. */
+.admin-table tbody tr.admin-row-active .admin-cell-excerpt {
+  color: #5f656d;
+}
+
+.admin-detail-list {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-2);
+  font-size: 0.9rem;
+}
+
+.admin-detail-list > div {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: var(--space-3);
+  align-items: baseline;
+}
+
+.admin-detail-list dt {
+  color: var(--color-brand-muted);
+}
+
+.admin-detail-list dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-cycle-detail-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
-  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.admin-cycle-detail-list li {
+  padding: var(--space-3);
+  border: 1px solid var(--color-brand-line);
+  border-radius: var(--radius-sm);
+}
+
+.admin-cycle-detail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.admin-cycle-detail-list .admin-cell-excerpt {
+  -webkit-line-clamp: initial;
+  line-clamp: initial;
+  display: block;
+}
+
+/* CountryCombobox is shared with the public finder, which styles it as a
+   48px hero-sized field. Dropped into an admin filter row or form grid it
+   towered over every input beside it and its 10px top margin knocked the
+   filter row out of alignment. */
+.admin-provider-picker .country-combobox,
+.admin-multiselect .country-combobox {
+  margin-top: 0;
+}
+
+.admin-provider-picker .country-combobox input,
+.admin-multiselect .country-combobox input {
+  height: auto;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-brand-line);
+  border-radius: var(--radius-sm);
+  font: inherit;
+}
+
+.admin-provider-picker .country-options,
+.admin-multiselect .country-options {
+  border-color: var(--color-brand-line);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+}
+
+.admin-provider-picker .country-options button,
+.admin-multiselect .country-options button {
+  font-size: 0.9rem;
+  border-radius: var(--radius-sm);
 }
 
 .admin-filters {
@@ -661,15 +785,6 @@
   background: #e3f6ee;
   border: 1px solid var(--color-brand-success);
   border-radius: var(--radius-sm);
-}
-
-.admin-toast button:not(.admin-link-button) {
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-brand-success);
-  border-radius: var(--radius-sm);
-  background: var(--color-brand-success);
-  color: #fff;
-  cursor: pointer;
 }
 
 /* .admin-field stacks its children, which stretched the bare checkbox to the

@@ -18,6 +18,11 @@ type DrawerProps = {
  * a reviewer can work down the queue without the panel closing between
  * items. That rules out <dialog>.showModal(), which makes the rest of the
  * page inert, so focus and Escape are handled here instead.
+ *
+ * Children are expected to be a <PanelActions> followed by a <PanelBody>.
+ * The panel itself does not scroll - the body does - so the action bar stays
+ * pinned below the header and the buttons are reachable without scrolling a
+ * long form to the bottom first.
  */
 export function Drawer({ title, wide, initialFocusRef, onClose, children }: DrawerProps) {
   const panelRef = useRef<HTMLElement>(null)
@@ -60,4 +65,16 @@ export function Drawer({ title, wide, initialFocusRef, onClose, children }: Draw
       </div>
     </aside>
   )
+}
+
+/** The panel's pinned action bar. Sits directly under the header, outside the
+ * scrolling body, so "Cancel" and the primary action are always in view. */
+export function PanelActions({ children }: { children: ReactNode }) {
+  return <div className="admin-panel-actions">{children}</div>
+}
+
+/** The panel's scrolling region. Owns the overflow so the action bar above it
+ * stays put, and is a flex column so a flexible field can absorb slack height. */
+export function PanelBody({ children }: { children: ReactNode }) {
+  return <div className="admin-panel-body">{children}</div>
 }
