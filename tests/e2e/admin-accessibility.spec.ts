@@ -221,7 +221,46 @@ test.describe('admin accessibility', () => {
     await expectNoSeriousViolations(page)
   })
 
-  test('publish modal has no serious a11y violations', async ({ page }) => {
+  test('scholarship actions open side panels beside the list', async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 1000 })
+    await page.goto('/admin/scholarships')
+
+    await page.getByRole('button', { name: 'Publish cycle' }).first().click()
+    const publishPanel = page.locator('.admin-drawer')
+    await expect(publishPanel).toBeVisible()
+    // Wider than the triage panel, and the table still sits clear of it.
+    const publishBox = await publishPanel.boundingBox()
+    expect(publishBox!.width).toBeGreaterThan(500)
+    const tableBox = await page.locator('.admin-table-wrap').boundingBox()
+    expect(tableBox!.x + tableBox!.width).toBeLessThanOrEqual(publishBox!.x + 1)
+
+    await page.keyboard.press('Escape')
+    await expect(publishPanel).toHaveCount(0)
+
+    await page.getByRole('button', { name: 'Withdraw' }).first().click()
+    await expect(page.locator('.admin-drawer')).toBeVisible()
+    await expect(page.locator('.admin-drawer')).toContainText('Withdraw')
+  })
+
+  test('reason box grows to fill the panel when rejecting', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 1000 })
+    await page.goto('/admin/reviews')
+    await page.getByRole('button', { name: 'Example Merit Scholarship' }).click()
+    const reason = page.locator('.admin-drawer textarea')
+
+    // Reject hides the approve fields, so the box should take up the slack.
+    const rejecting = (await reason.boundingBox())!.height
+    expect(rejecting).toBeGreaterThan(200)
+
+    // Approve needs the room back for its own fields.
+    await page.getByRole('radio', { name: 'Approve' }).click()
+    await expect(page.locator('.admin-form-grid')).toBeVisible()
+    const approving = (await reason.boundingBox())!.height
+    expect(approving).toBeLessThan(rejecting)
+    expect(approving).toBeGreaterThanOrEqual(60)
+  })
+
+  test('publish panel has no serious a11y violations', async ({ page }) => {
     await page.goto('/admin/scholarships')
     await page.getByRole('button', { name: 'Publish cycle' }).first().click()
     await expect(page.getByRole('combobox', { name: 'Add destinations' })).toBeVisible()

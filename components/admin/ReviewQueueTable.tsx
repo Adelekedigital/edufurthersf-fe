@@ -8,7 +8,7 @@ import type { ProviderRead, PublishPrefill, ReviewDecisionResponse, ReviewTaskSu
 import type { Taxonomies } from '../../app/types'
 import { Badge, type BadgeTone } from './Badge'
 import { excerptPreview } from './ExcerptText'
-import { PublishCycleModal } from './PublishCycleModal'
+import { PublishCycleDrawer } from './PublishCycleDrawer'
 import { ReviewDecisionDrawer } from './ReviewDecisionDrawer'
 
 const MAX_BULK_SELECTION = 10
@@ -200,7 +200,7 @@ export function ReviewQueueTable({ reviewerName }: { reviewerName: string }) {
   if (loadState === 'error') return <p className="admin-auth-error" role="alert">{loadError}</p>
 
   return (
-    <div className={`admin-review-queue${activeTask ? ' admin-review-queue-with-drawer' : ''}`}>
+    <div className={`admin-review-queue${activeTask ? ' admin-page-with-drawer' : ''}`}>
       <div className="admin-queue-header">
         <h1>Review queue</h1>
         <p>{openCount} open item{openCount === 1 ? '' : 's'}</p>
@@ -290,7 +290,7 @@ export function ReviewQueueTable({ reviewerName }: { reviewerName: string }) {
       ) : null}
 
       {publishPrompt && publishModalOpen && taxonomies ? (
-        <PublishCycleModal
+        <PublishCycleDrawer
           scholarshipId={publishPrompt.scholarshipId}
           scholarshipName={publishPrompt.scholarshipName}
           officialHomeUrl={publishPrompt.officialHomeUrl}

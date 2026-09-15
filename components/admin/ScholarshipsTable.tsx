@@ -8,8 +8,8 @@ import type { ProviderRead, ScholarshipAdminRead, ScholarshipFilters } from '../
 import type { Taxonomies } from '../../app/types'
 import { Badge, type BadgeTone } from './Badge'
 import { ProviderPicker } from './ProviderPicker'
-import { PublishCycleModal } from './PublishCycleModal'
-import { WithdrawModal } from './WithdrawModal'
+import { PublishCycleDrawer } from './PublishCycleDrawer'
+import { WithdrawDrawer } from './WithdrawDrawer'
 
 const LIFECYCLE_STATES = ['discovered', 'needs_review', 'published', 'withdrawn']
 const PUBLIC_STATUSES = ['open_verified', 'expected_to_reopen', 'status_unknown']
@@ -162,7 +162,7 @@ export function ScholarshipsTable({ reviewerName }: { reviewerName: string }) {
   if (loadState === 'error') return <p className="admin-auth-error" role="alert">{loadError}</p>
 
   return (
-    <div className="admin-scholarships">
+    <div className={`admin-scholarships${publishTarget ? ' admin-page-with-drawer-wide' : withdrawTarget ? ' admin-page-with-drawer' : ''}`}>
       <div className="admin-queue-header">
         <h1>Scholarships</h1>
         <p>{total} total</p>
@@ -244,7 +244,10 @@ export function ScholarshipsTable({ reviewerName }: { reviewerName: string }) {
       ) : null}
 
       {publishTarget && taxonomies ? (
-        <PublishCycleModal
+        <PublishCycleDrawer
+          // Remount per scholarship so a previous cycle's form state never
+          // carries into the next one.
+          key={publishTarget.scholarship_id}
           scholarshipId={publishTarget.scholarship_id}
           scholarshipName={publishTarget.name}
           officialHomeUrl={publishTarget.official_home_url}
@@ -259,7 +262,8 @@ export function ScholarshipsTable({ reviewerName }: { reviewerName: string }) {
       ) : null}
 
       {withdrawTarget ? (
-        <WithdrawModal
+        <WithdrawDrawer
+          key={withdrawTarget.scholarship_id}
           scholarshipId={withdrawTarget.scholarship_id}
           scholarshipName={withdrawTarget.name}
           reviewerName={reviewerName}

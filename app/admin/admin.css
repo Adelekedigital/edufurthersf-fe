@@ -254,16 +254,59 @@
 }
 
 .admin-drawer-inner {
+  /* Full height so a flexible field (the reason box) has leftover space to
+     absorb rather than leaving a gap above the actions. */
+  min-height: 100%;
   padding: var(--space-6);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
 }
 
+.admin-drawer:focus-visible {
+  outline: 2px solid var(--color-brand-blue);
+  outline-offset: -2px;
+}
+
+/* Publishing is a much larger form than triage, so it gets more room. */
+.admin-drawer-wide {
+  width: 620px;
+}
+
 /* Reserve the panel's width so the table is never hidden underneath it -
-   seeing the list while deciding is the whole point of the panel. */
-.admin-review-queue-with-drawer {
+   seeing the list while working is the whole point of the panel. */
+.admin-page-with-drawer {
   margin-right: 476px;
+}
+
+.admin-page-with-drawer-wide {
+  margin-right: 636px;
+}
+
+/* The reason box absorbs whatever height is left, so rejecting - which hides
+   the approve fields - does not leave a dead gap above the buttons. Bounded
+   both ways so it never collapses and never pushes the actions out of reach. */
+.admin-field-reason {
+  flex: 1 1 auto;
+  min-height: 120px;
+  max-height: 420px;
+}
+
+.admin-field-reason textarea {
+  flex: 1 1 auto;
+  min-height: 0;
+  resize: vertical;
+}
+
+@media (max-width: 1100px) {
+  .admin-drawer-wide {
+    width: 100%;
+    border-left: none;
+  }
+
+  .admin-page-with-drawer-wide {
+    margin-right: 0;
+  }
 }
 
 @media (max-width: 900px) {
@@ -273,36 +316,13 @@
   }
 
   /* No room to sit alongside at this width, so the panel covers the list and
-     the queue keeps its full width underneath. */
-  .admin-review-queue-with-drawer {
+     the page keeps its full width underneath. */
+  .admin-page-with-drawer {
     margin-right: 0;
   }
 }
 
-.admin-modal {
-  width: min(664px, calc(100vw - 32px));
-  max-height: calc(100vh - 32px);
-  overflow: auto;
-  margin: auto;
-  padding: 0;
-  border: 1px solid var(--color-brand-line);
-  border-radius: var(--radius-sm);
-  color: var(--color-brand-ink);
-  box-shadow: 0 18px 60px rgba(25, 43, 61, 0.2);
-}
-
-.admin-modal::backdrop {
-  background: rgba(25, 43, 61, 0.4);
-}
-
-.admin-modal-inner {
-  padding: var(--space-8);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.admin-modal-header {
+.admin-panel-header {
   display: flex;
   justify-content: space-between;
   gap: var(--space-4);
@@ -310,12 +330,12 @@
   padding-bottom: var(--space-4);
 }
 
-.admin-modal-header h2 {
+.admin-panel-header h2 {
   margin: 0;
   font-size: 1.1rem;
 }
 
-.admin-modal-excerpt {
+.admin-panel-excerpt {
   margin: 0;
   color: var(--color-brand-muted);
 }
@@ -363,7 +383,7 @@
   user-select: none;
 }
 
-.admin-modal-source {
+.admin-panel-source {
   align-self: flex-start;
 }
 
@@ -400,13 +420,13 @@
   font: inherit;
 }
 
-.admin-modal-actions {
+.admin-panel-actions {
   display: flex;
   justify-content: flex-end;
   gap: var(--space-3);
 }
 
-.admin-modal-actions button {
+.admin-panel-actions button {
   /* min-width keeps Cancel and the submit button the same size despite the
      submit button's heavier font weight and longer labels. Sized for the
      longest in-flight label ("Withdrawing…", 145px) so the button does not
@@ -419,27 +439,27 @@
   cursor: pointer;
 }
 
-/* .admin-modal-actions button above matches every button in the footer,
+/* .admin-panel-actions button above matches every button in the footer,
    including the submit button - these compound selectors need to win on
    specificity (not just source order) or the submit button silently
    inherits a white background under its white text. */
-.admin-modal-actions button.admin-auth-submit {
+.admin-panel-actions button.admin-auth-submit {
   background: var(--color-brand-blue);
   border-color: var(--color-brand-blue);
   color: #fff;
 }
 
-.admin-modal-actions button.admin-auth-submit:hover {
+.admin-panel-actions button.admin-auth-submit:hover {
   background: var(--color-brand-blue-dark);
 }
 
-.admin-modal-actions button.admin-danger-button {
+.admin-panel-actions button.admin-danger-button {
   background: #b3261e;
   border-color: #b3261e;
   color: #fff;
 }
 
-.admin-modal-actions button.admin-danger-button:hover {
+.admin-panel-actions button.admin-danger-button:hover {
   background: #8c1d17;
 }
 
@@ -631,10 +651,6 @@
   overflow-y: auto;
 }
 
-.admin-modal-narrow {
-  width: min(480px, calc(100vw - 32px));
-}
-
 .admin-toast {
   display: flex;
   flex-wrap: wrap;
@@ -654,4 +670,18 @@
   background: var(--color-brand-success);
   color: #fff;
   cursor: pointer;
+}
+
+/* .admin-field stacks its children, which stretched the bare checkbox to the
+   full field width. Checkbox fields lay out as a row at natural size. */
+.admin-field-checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.admin-field-checkbox input[type='checkbox'] {
+  width: auto;
+  flex: 0 0 auto;
+  margin: 0;
 }

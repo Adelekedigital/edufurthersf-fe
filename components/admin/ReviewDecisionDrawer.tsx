@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { decideReview } from '../../app/admin/api'
 import type { AdminApiError, ProviderRead, ReviewDecision, ReviewDecisionResponse, ReviewTaskSummary } from '../../app/admin/types'
 import type { Option } from '../../app/types'
+import { Drawer } from './Drawer'
 import { ExcerptText } from './ExcerptText'
 import { ProviderPicker } from './ProviderPicker'
 
@@ -49,26 +50,6 @@ export function ReviewDecisionDrawer({ task, reviewerName, providers, awardTypes
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    const previouslyFocused = document.activeElement as HTMLElement | null
-    reasonRef.current?.focus()
-    return () => {
-      // Nothing traps focus here, so returning it to the row that opened the
-      // panel is what keeps keyboard users from landing back on <body>.
-      previouslyFocused?.focus()
-    }
-  }, [])
-
-  useEffect(() => {
-    // Document-level rather than on the panel: focus may well be back in the
-    // list (that is the point of a non-modal panel) when Escape is pressed.
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [onClose])
-
   const handleCanonicalNameChange = (value: string) => {
     setCanonicalName(value)
     if (!slugTouched) setSlug(slugify(value))
@@ -104,15 +85,9 @@ export function ReviewDecisionDrawer({ task, reviewerName, providers, awardTypes
   }
 
   return (
-    <aside className="admin-drawer" aria-label={`Review: ${task.raw_title ?? 'Untitled candidate'}`}>
-      <div className="admin-drawer-inner">
-        <header className="admin-modal-header">
-          <h2>{task.raw_title ?? 'Untitled candidate'}</h2>
-          <button className="modal-close" type="button" aria-label="Close review panel" onClick={onClose}>{'×'}</button>
-        </header>
-
+    <Drawer title={task.raw_title ?? 'Untitled candidate'} initialFocusRef={reasonRef} onClose={onClose}>
         {task.raw_excerpt ? <ExcerptText text={task.raw_excerpt} /> : null}
-        {task.source_url ? <a href={task.source_url} target="_blank" rel="noreferrer" className="admin-modal-source">View source</a> : null}
+        {task.source_url ? <a href={task.source_url} target="_blank" rel="noreferrer" className="admin-panel-source">View source</a> : null}
 
         <div className="admin-decision-toggle" role="radiogroup" aria-label="Decision">
           <button type="button" role="radio" aria-checked={decision === 'reject'} className={decision === 'reject' ? 'active' : ''} onClick={() => setDecision('reject')}>Reject</button>
@@ -147,20 +122,19 @@ export function ReviewDecisionDrawer({ task, reviewerName, providers, awardTypes
           </div>
         ) : null}
 
-        <label className="admin-field">
+        <label className="admin-field admin-field-reason">
           <span>Reason{decision === 'approve' ? ' (internal note)' : ''}</span>
           <textarea ref={reasonRef} value={reason} onChange={(event) => setReason(event.target.value)} rows={3} />
         </label>
 
         {error ? <p className="admin-auth-error" role="alert">{error}</p> : null}
 
-        <div className="admin-modal-actions">
+        <div className="admin-panel-actions">
           <button type="button" onClick={onClose} disabled={submitting}>Cancel</button>
           <button type="button" className="admin-auth-submit" onClick={submit} disabled={!canSubmit || submitting}>
             {submitting ? 'Saving…' : decision === 'approve' ? 'Approve' : 'Reject'}
           </button>
         </div>
-      </div>
-    </aside>
+    </Drawer>
   )
 }

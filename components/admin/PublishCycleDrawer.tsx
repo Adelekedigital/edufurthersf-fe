@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { publishCycle } from '../../app/admin/api'
+import { Drawer } from './Drawer'
 import type { AdminApiError, DeadlinePrecision, FieldMode, OriginMode, PublicStatusValue, PublishPrefill } from '../../app/admin/types'
 import type { Option, Taxonomies } from '../../app/types'
 import { MultiSelectCombobox } from './MultiSelectCombobox'
@@ -14,7 +15,7 @@ function toIsoOrUndefined(localDateTime: string): string | undefined {
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
-type PublishCycleModalProps = {
+type PublishCycleDrawerProps = {
   scholarshipId: string
   scholarshipName: string
   officialHomeUrl?: string
@@ -24,8 +25,7 @@ type PublishCycleModalProps = {
   onPublished: (scholarshipId: string, result: { cycle_id: string; lifecycle_state: string; public_status: string }) => void
 }
 
-export function PublishCycleModal({ scholarshipId, scholarshipName, officialHomeUrl, taxonomies, prefill, onClose, onPublished }: PublishCycleModalProps) {
-  const dialogRef = useRef<HTMLDialogElement>(null)
+export function PublishCycleDrawer({ scholarshipId, scholarshipName, officialHomeUrl, taxonomies, prefill, onClose, onPublished }: PublishCycleDrawerProps) {
   const providerCycleKeyRef = useRef<HTMLInputElement>(null)
   const [providerCycleKey, setProviderCycleKey] = useState('')
   const [applicantSegment, setApplicantSegment] = useState('default')
@@ -57,20 +57,6 @@ export function PublishCycleModal({ scholarshipId, scholarshipName, officialHome
   const [fundingType, setFundingType] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    const dialog = dialogRef.current
-    if (!dialog) return
-    const previouslyFocused = document.activeElement as HTMLElement | null
-    dialog.showModal()
-    // See ReviewDecisionModal - React's autoFocus no-ops here since elements
-    // inside a <dialog> aren't focusable until showModal() runs.
-    providerCycleKeyRef.current?.focus()
-    return () => {
-      if (dialog.open) dialog.close()
-      previouslyFocused?.focus()
-    }
-  }, [])
 
   const canSubmit = Boolean(
     providerCycleKey.trim() && officialCycleUrl.trim() && publicStatus && destinations.length && levels.length &&
@@ -118,12 +104,7 @@ export function PublishCycleModal({ scholarshipId, scholarshipName, officialHome
   )
 
   return (
-    <dialog className="admin-modal" ref={dialogRef} aria-labelledby="publish-title" onCancel={(event) => { event.preventDefault(); onClose() }}>
-      <div className="admin-modal-inner">
-        <header className="admin-modal-header">
-          <h2 id="publish-title">Publish a cycle for {scholarshipName}</h2>
-          <button className="modal-close" type="button" aria-label="Close" onClick={onClose}>{'×'}</button>
-        </header>
+    <Drawer title={`Publish a cycle for ${scholarshipName}`} wide initialFocusRef={providerCycleKeyRef} onClose={onClose}>
 
         <section className="admin-form-section">
           <h3>Cycle identity</h3>
@@ -170,8 +151,9 @@ export function PublishCycleModal({ scholarshipId, scholarshipName, officialHome
                 {MONTHS.map((month, index) => <option key={month} value={index + 1}>{month}</option>)}
               </select>
             </label>
-            <label className="admin-field">
-              <input type="checkbox" checked={evidenceFresh} onChange={(event) => setEvidenceFresh(event.target.checked)} /> Evidence is current as of today
+            <label className="admin-field admin-field-checkbox">
+              <input type="checkbox" checked={evidenceFresh} onChange={(event) => setEvidenceFresh(event.target.checked)} />
+              <span>Evidence is current as of today</span>
             </label>
           </div>
         </section>
@@ -263,13 +245,12 @@ export function PublishCycleModal({ scholarshipId, scholarshipName, officialHome
 
         {error ? <p className="admin-auth-error" role="alert">{error}</p> : null}
 
-        <div className="admin-modal-actions">
+        <div className="admin-panel-actions">
           <button type="button" onClick={onClose} disabled={submitting}>Cancel</button>
           <button type="button" className="admin-auth-submit" onClick={submit} disabled={!canSubmit || submitting}>
             {submitting ? 'Publishing…' : 'Publish'}
           </button>
         </div>
-      </div>
-    </dialog>
+    </Drawer>
   )
 }
