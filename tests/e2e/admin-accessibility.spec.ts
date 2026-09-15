@@ -30,7 +30,14 @@ const reviewTask = {
   reason: '', priority: 75, state: 'open',
   discovery_id: '22222222-2222-2222-2222-222222222222', revision_id: null, cycle_id: null,
   raw_title: 'Example Merit Scholarship',
-  raw_excerpt: 'A long excerpt that the table clamps to two lines. '.repeat(20),
+  // Shaped like real scraped excerpts: blank-line blocks, '###' markers and
+  // a '[...]' omission, so the excerpt renderer is actually exercised.
+  raw_excerpt: [
+    'Intro paragraph that runs on for a while so the table has something to clamp to two lines. [...] Second scraped section after an omission.',
+    '### Postgraduate',
+    '### A heading so long that it is really a sentence the scraper mislabelled and should not be emphasised in the panel.',
+    'Closing paragraph. Terms and conditions apply.',
+  ].join('\n\n'),
   source_url: 'https://example.edu/award',
   extracted_facts: { level_mentions: ['masters'], eligibility_phrase: 'international students', funding_mentions: ['$5,000'], deadline_mentions: ['March 15, 2027'] },
   draft_recommendation: { verdict: 'ambiguous', proposed_award_type: null, proposed_facts: { level_mentions: ['masters'], eligibility_phrase: 'international students', funding_mentions: ['$5,000'], deadline_mentions: ['March 15, 2027'] } },
@@ -126,6 +133,28 @@ test.describe('admin accessibility', () => {
     await expect(page.getByRole('radio', { name: 'Approve' })).toBeVisible()
     await page.getByRole('radio', { name: 'Approve' }).click()
     await expectNoSeriousViolations(page)
+  })
+
+  test('decision modal renders scraped excerpts as readable blocks', async ({ page }) => {
+    await page.goto('/admin/reviews')
+    await page.getByRole('button', { name: 'Example Merit Scholarship' }).click()
+    const excerpt = page.locator('.admin-excerpt')
+    await expect(excerpt).toBeVisible()
+
+    // Scraper artefacts must not leak into the reviewer's view.
+    await expect(excerpt).not.toContainText('###')
+    await expect(excerpt).not.toContainText('[...]')
+
+    // A short "###" line reads as a heading; a sentence-length one does not.
+    await expect(excerpt.locator('.admin-excerpt-subhead')).toHaveText(['Postgraduate'])
+    await expect(excerpt).toContainText('mislabelled and should not be emphasised')
+
+    // The dropped section is marked rather than silently joined.
+    await expect(excerpt.locator('.admin-excerpt-gap')).toHaveCount(1)
+
+    // Bounded so the decision controls stay reachable.
+    const box = await excerpt.boundingBox()
+    expect(box!.height).toBeLessThanOrEqual(300)
   })
 
   test('scholarships list has no serious a11y violations', async ({ page }) => {

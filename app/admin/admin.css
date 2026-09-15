@@ -279,6 +279,49 @@
   color: var(--color-brand-muted);
 }
 
+/* Scraped excerpts run past 2,500 characters, so the reviewer needs a
+   readable measure and a bounded, scrollable region rather than a wall of
+   text that pushes the decision controls off screen. */
+.admin-excerpt {
+  max-height: 260px;
+  overflow-y: auto;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-brand-page);
+  border: 1px solid var(--color-brand-line);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  line-height: 1.65;
+}
+
+/* The panel is keyboard focusable so it can be scrolled without a mouse;
+   it needs a visible indicator to match. */
+.admin-excerpt:focus-visible {
+  outline: 2px solid var(--color-brand-blue);
+  outline-offset: 2px;
+}
+
+.admin-excerpt p {
+  margin: 0 0 var(--space-3);
+  color: var(--color-brand-ink);
+  max-width: 68ch;
+}
+
+.admin-excerpt p:last-child {
+  margin-bottom: 0;
+}
+
+.admin-excerpt-subhead {
+  font-weight: 600;
+}
+
+/* Marks where the scraper dropped a section, so two unrelated passages are
+   not read as continuous prose. */
+.admin-excerpt-gap {
+  color: var(--color-brand-muted);
+  letter-spacing: 0.3em;
+  user-select: none;
+}
+
 .admin-modal-source {
   align-self: flex-start;
 }

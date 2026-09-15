@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { decideReview } from '../../app/admin/api'
 import type { AdminApiError, ProviderRead, ReviewDecision, ReviewDecisionResponse, ReviewTaskSummary } from '../../app/admin/types'
 import type { Option } from '../../app/types'
+import { ExcerptText } from './ExcerptText'
 import { ProviderPicker } from './ProviderPicker'
 
 function slugify(value: string): string {
@@ -99,7 +100,7 @@ export function ReviewDecisionModal({ task, reviewerName, providers, awardTypes,
           <button className="modal-close" type="button" aria-label="Close" onClick={onClose}>{'×'}</button>
         </header>
 
-        {task.raw_excerpt ? <p className="admin-modal-excerpt">{task.raw_excerpt}</p> : null}
+        {task.raw_excerpt ? <ExcerptText text={task.raw_excerpt} /> : null}
         {task.source_url ? <a href={task.source_url} target="_blank" rel="noreferrer" className="admin-modal-source">View source</a> : null}
 
         <div className="admin-decision-toggle" role="radiogroup" aria-label="Decision">

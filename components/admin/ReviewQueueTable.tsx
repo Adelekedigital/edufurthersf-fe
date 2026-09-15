@@ -7,6 +7,7 @@ import { getTaxonomies } from '../../app/api'
 import type { ProviderRead, PublishPrefill, ReviewDecisionResponse, ReviewTaskSummary } from '../../app/admin/types'
 import type { Taxonomies } from '../../app/types'
 import { Badge, type BadgeTone } from './Badge'
+import { excerptPreview } from './ExcerptText'
 import { PublishCycleModal } from './PublishCycleModal'
 import { ReviewDecisionModal } from './ReviewDecisionModal'
 
@@ -178,7 +179,7 @@ export function ReviewQueueTable({ reviewerName }: { reviewerName: string }) {
           <button type="button" className="admin-link-button" onClick={() => setActiveTask(info.row.original)}>
             {info.getValue() ?? 'Untitled candidate'}
           </button>
-          {info.row.original.raw_excerpt ? <p className="admin-cell-excerpt">{info.row.original.raw_excerpt}</p> : null}
+          {info.row.original.raw_excerpt ? <p className="admin-cell-excerpt">{excerptPreview(info.row.original.raw_excerpt)}</p> : null}
         </div>
       ),
     }),
