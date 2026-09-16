@@ -3,7 +3,7 @@
 import { useRef, useState, type Ref } from 'react'
 import { publishCycle } from '../../app/admin/api'
 import { Drawer, PanelActions, PanelBody } from './Drawer'
-import type { AdminApiError, DeadlinePrecision, FieldMode, OriginMode, PublicStatusValue, PublishPrefill } from '../../app/admin/types'
+import type { AdminApiError, DeadlinePrecision, FieldMode, OriginMode, PublicStatusValue, PublishPrefill, ScholarshipCycleAdminRead } from '../../app/admin/types'
 import type { Option, Taxonomies } from '../../app/types'
 import { MultiSelectCombobox } from './MultiSelectCombobox'
 
@@ -13,6 +13,30 @@ function toIsoOrUndefined(localDateTime: string): string | undefined {
   return Number.isNaN(date.getTime()) ? undefined : date.toISOString()
 }
 
+/** ISO instant -> the "YYYY-MM-DDTHH:mm" a datetime-local input accepts.
+ *  Local time, to round-trip with toIsoOrUndefined above. */
+function toDateTimeInput(iso: unknown): string {
+  if (typeof iso !== 'string' || !iso) return ''
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return ''
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+function seedString(value: unknown, fallback = ''): string {
+  return typeof value === 'string' && value ? value : fallback
+}
+
+/** Codes the current taxonomy still publishes. A code that has since been
+ *  retired would leave the combobox visually empty while still passing the
+ *  "length" submit check, then fail as a 422 - the same trap the review
+ *  draft's level_mentions set. */
+function seedCodes(value: unknown, available: Option[]): string[] {
+  if (!Array.isArray(value)) return []
+  const known = new Set(available.map((option) => option.code))
+  return value.filter((code): code is string => typeof code === 'string' && known.has(code))
+}
+
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
 type PublishCycleFormProps = {
@@ -20,6 +44,9 @@ type PublishCycleFormProps = {
   officialHomeUrl?: string
   taxonomies: Taxonomies
   prefill?: PublishPrefill
+  /** An existing cycle to carry forward, so publishing the next one is not a
+   *  full retype of the last. */
+  seedFrom?: ScholarshipCycleAdminRead
   /** Heading for the body when the panel title is the scholarship rather than the action. */
   heading?: string
   firstFieldRef?: Ref<HTMLInputElement>
@@ -33,40 +60,57 @@ type PublishCycleFormProps = {
  * scholarship (inside that scholarship's panel, alongside withdraw) and from
  * the "publish now" prompt after approving a review, which has no panel of
  * its own. See PublishCycleDrawer below for the standalone case. */
-export function PublishCycleForm({ scholarshipId, officialHomeUrl, taxonomies, prefill, heading, firstFieldRef, onCancel, onPublished }: PublishCycleFormProps) {
-  const [providerCycleKey, setProviderCycleKey] = useState('')
-  const [applicantSegment, setApplicantSegment] = useState('default')
-  const [officialCycleUrl, setOfficialCycleUrl] = useState(officialHomeUrl ?? '')
-  const [publicStatus, setPublicStatus] = useState<PublicStatusValue | ''>('')
-  const [statusValidUntil, setStatusValidUntil] = useState('')
+export function PublishCycleForm({ scholarshipId, officialHomeUrl, taxonomies, prefill, seedFrom, heading, firstFieldRef, onCancel, onPublished }: PublishCycleFormProps) {
+  const facts: Record<string, unknown> = seedFrom?.facts ?? {}
+
+  const [providerCycleKey, setProviderCycleKey] = useState(() => seedString(seedFrom?.provider_cycle_key))
+  const [applicantSegment, setApplicantSegment] = useState(() => seedString(seedFrom?.applicant_segment, 'default'))
+  const [officialCycleUrl, setOfficialCycleUrl] = useState(() => seedString(seedFrom?.official_cycle_url, officialHomeUrl ?? ''))
+  const [publicStatus, setPublicStatus] = useState<PublicStatusValue | ''>(() => (seedFrom?.public_status ?? '') as PublicStatusValue | '')
+  const [statusValidUntil, setStatusValidUntil] = useState(() => toDateTimeInput(seedFrom?.status_valid_until))
+  // Not seeded: "last verified" and "evidence is current" are claims that
+  // someone checked the source today. Copying last cycle's values forward
+  // would assert verification work that has not happened.
   const [lastVerifiedAt, setLastVerifiedAt] = useState('')
-  const [destinations, setDestinations] = useState<string[]>([])
+  const [destinations, setDestinations] = useState<string[]>(() => seedCodes(facts.destinations, taxonomies.destinations))
   // The extractor emits level_mentions from its own keyword list, which does
   // not always intersect the degree taxonomy - "bachelors" is a real possible
   // mention but is not a published degree code. Keeping an unmatched code
   // would leave the select visually empty while still passing the
   // "levels.length" submit check, so it would fail as a 422 on publish.
-  const [levels, setLevels] = useState<string[]>(() => {
-    const available = new Set(taxonomies.degrees.map((degree) => degree.code))
-    return (prefill?.levels ?? []).filter((code) => available.has(code))
-  })
-  const [originMode, setOriginMode] = useState<OriginMode>('unknown')
-  const [origins, setOrigins] = useState<string[]>([])
-  const [fieldMode, setFieldMode] = useState<FieldMode>('unknown')
-  const [fields, setFields] = useState<string[]>([])
-  const [programmeNames, setProgrammeNames] = useState('')
+  const [levels, setLevels] = useState<string[]>(() => (
+    seedFrom ? seedCodes(facts.levels, taxonomies.degrees) : seedCodes(prefill?.levels, taxonomies.degrees)
+  ))
+  const [originMode, setOriginMode] = useState<OriginMode>(() => (facts.origin_mode as OriginMode) ?? 'unknown')
+  const [origins, setOrigins] = useState<string[]>(() => seedCodes(facts.origins, taxonomies.countries))
+  const [fieldMode, setFieldMode] = useState<FieldMode>(() => (facts.field_mode as FieldMode) ?? 'unknown')
+  const [fields, setFields] = useState<string[]>(() => seedCodes(facts.fields, taxonomies.fields))
+  const [programmeNames, setProgrammeNames] = useState(() => (
+    Array.isArray(facts.programme_names) ? facts.programme_names.filter((item): item is string => typeof item === 'string').join(', ') : ''
+  ))
   const [evidenceFresh, setEvidenceFresh] = useState(false)
-  const [deadlineAt, setDeadlineAt] = useState('')
-  const [deadlinePrecision, setDeadlinePrecision] = useState<DeadlinePrecision>('date')
-  const [deadlineTimezone, setDeadlineTimezone] = useState('')
-  const [eligibilityNote, setEligibilityNote] = useState(prefill?.eligibilityNote ?? '')
-  const [expectedReopenMonth, setExpectedReopenMonth] = useState('')
-  const [fundingType, setFundingType] = useState('')
+  const [deadlineAt, setDeadlineAt] = useState(() => toDateTimeInput(facts.deadline_at))
+  const [deadlinePrecision, setDeadlinePrecision] = useState<DeadlinePrecision>(() => (facts.deadline_precision as DeadlinePrecision) ?? 'date')
+  const [deadlineTimezone, setDeadlineTimezone] = useState(() => seedString(facts.deadline_timezone))
+  const [eligibilityNote, setEligibilityNote] = useState(() => seedString(facts.eligibility_note, prefill?.eligibilityNote ?? ''))
+  const [expectedReopenMonth, setExpectedReopenMonth] = useState(() => (
+    typeof facts.expected_reopen_month === 'number' ? String(facts.expected_reopen_month) : ''
+  ))
+  const [fundingType, setFundingType] = useState(() => {
+    const code = seedString(facts.funding_type)
+    return taxonomies.funding_types.some((option) => option.code === code) ? code : ''
+  })
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // The key is carried over so the reviewer can see what the last cycle was
+  // called and edit from it, but it has to change: the backend rejects a
+  // duplicate key with a 409. Blocking here turns that into a message next to
+  // the field instead of a failed request after the form is filled in.
+  const duplicateCycleKey = Boolean(seedFrom && providerCycleKey.trim() === seedFrom.provider_cycle_key)
+
   const canSubmit = Boolean(
-    providerCycleKey.trim() && officialCycleUrl.trim() && publicStatus && destinations.length && levels.length &&
+    providerCycleKey.trim() && !duplicateCycleKey && officialCycleUrl.trim() && publicStatus && destinations.length && levels.length &&
     (originMode !== 'restricted' || origins.length) && (fieldMode !== 'restricted' || fields.length)
   )
 
@@ -124,12 +168,33 @@ export function PublishCycleForm({ scholarshipId, officialHomeUrl, taxonomies, p
 
         {error ? <p className="admin-auth-error" role="alert">{error}</p> : null}
 
+        {seedFrom ? (
+          <p className="admin-panel-note">
+            Carried over from <strong>{seedFrom.provider_cycle_key}</strong>. This publishes a <em>new</em> cycle rather than changing
+            that one, so give it its own key. Re-check the source before saving — the verification date and evidence box are left blank
+            on purpose, since nobody has checked yet.
+          </p>
+        ) : null}
+
         <section className="admin-form-section">
           <h3>Cycle identity</h3>
           <div className="admin-form-grid">
             <label className="admin-field">
               <span>Provider cycle key</span>
-              <input ref={firstFieldRef} type="text" value={providerCycleKey} onChange={(event) => setProviderCycleKey(event.target.value)} placeholder="e.g. 2027-intake" />
+              <input
+                ref={firstFieldRef}
+                type="text"
+                value={providerCycleKey}
+                onChange={(event) => setProviderCycleKey(event.target.value)}
+                placeholder="e.g. 2027-intake"
+                aria-invalid={duplicateCycleKey || undefined}
+                aria-describedby={duplicateCycleKey ? 'cycle-key-hint' : undefined}
+              />
+              {duplicateCycleKey ? (
+                <span className="admin-hint admin-hint-warning" id="cycle-key-hint">
+                  This is the key it was copied from. Change it — a cycle cannot reuse one.
+                </span>
+              ) : null}
             </label>
             <label className="admin-field">
               <span>Applicant segment</span>

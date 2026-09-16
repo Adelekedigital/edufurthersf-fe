@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Drawer, PanelActions, PanelBody } from './Drawer'
 import { Badge, type BadgeTone } from './Badge'
+import { CycleDetail } from './CycleDetail'
 import { PublishCycleForm } from './PublishCycleDrawer'
 import { WithdrawForm } from './WithdrawForm'
 import type { ScholarshipAdminRead, WithdrawResponse } from '../../app/admin/types'
@@ -70,6 +71,12 @@ export function ScholarshipDrawer({ scholarship, reviewerName, taxonomies, onClo
     .sort()
     .at(-1) ?? null
 
+  // The most recently verified cycle is the one worth carrying forward; ties
+  // and missing dates fall back to the order the backend returned.
+  const latestCycle = scholarship.cycles.length
+    ? [...scholarship.cycles].sort((a, b) => (a.last_verified_at ?? '').localeCompare(b.last_verified_at ?? '')).at(-1)
+    : undefined
+
   return (
     <Drawer title={scholarship.name} wide onClose={onClose}>
       {mode === 'overview' ? (
@@ -130,16 +137,7 @@ export function ScholarshipDrawer({ scholarship, reviewerName, taxonomies, onClo
               ) : (
                 <ul className="admin-cycle-detail-list">
                   {scholarship.cycles.map((cycle) => (
-                    <li key={cycle.cycle_id}>
-                      <div className="admin-cycle-detail-head">
-                        <strong>{cycle.provider_cycle_key}</strong>
-                        <StateBadge value={cycle.evaluated_public_status} />
-                      </div>
-                      <p className="admin-cell-excerpt">
-                        {cycle.applicant_segment} · verified {formatDate(cycle.last_verified_at)}
-                        {cycle.is_auto_approved ? ' · auto-approved' : ''}
-                      </p>
-                    </li>
+                    <CycleDetail key={cycle.cycle_id} cycle={cycle} taxonomies={taxonomies} />
                   ))}
                 </ul>
               )}
@@ -151,6 +149,7 @@ export function ScholarshipDrawer({ scholarship, reviewerName, taxonomies, onClo
           scholarshipId={scholarship.scholarship_id}
           officialHomeUrl={scholarship.official_home_url}
           taxonomies={taxonomies}
+          seedFrom={latestCycle}
           heading="Publish a cycle"
           firstFieldRef={publishFieldRef}
           onCancel={() => setMode('overview')}
