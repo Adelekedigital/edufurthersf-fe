@@ -6,6 +6,7 @@ import type {
   ProviderListResponse,
   ProviderRead,
   PublishCycleRequest,
+  UpdateCycleRequest,
   PublishCycleResponse,
   ReviewDecisionRequest,
   ReviewDecisionResponse,
@@ -145,3 +146,12 @@ export const publishCycle = async (scholarshipId: string, payload: PublishCycleR
 
 export const withdrawScholarship = async (scholarshipId: string, payload: WithdrawRequest) =>
   parseWithdrawResponse(await request<unknown>(`/scholarships/${encodeURIComponent(scholarshipId)}/withdraw`, { method: 'POST', body: JSON.stringify(payload), cache: 'no-store' }))
+
+/** Correct a live cycle. Partial by design: send only what changed, so two
+ *  reviewers touching different fields do not overwrite each other and the
+ *  backend's audit entry names the fields that actually moved. */
+export const updateCycle = async (scholarshipId: string, cycleId: string, payload: UpdateCycleRequest) =>
+  parsePublishCycleResponse(await request<unknown>(
+    `/scholarships/${encodeURIComponent(scholarshipId)}/cycles/${encodeURIComponent(cycleId)}`,
+    { method: 'PATCH', body: JSON.stringify(payload), cache: 'no-store' },
+  ))

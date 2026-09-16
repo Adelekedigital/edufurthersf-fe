@@ -6,7 +6,7 @@ import { Badge, type BadgeTone } from './Badge'
 import { CycleDetail } from './CycleDetail'
 import { PublishCycleForm } from './PublishCycleDrawer'
 import { WithdrawForm } from './WithdrawForm'
-import type { ScholarshipAdminRead, WithdrawResponse } from '../../app/admin/types'
+import type { ScholarshipAdminRead, ScholarshipCycleAdminRead, WithdrawResponse } from '../../app/admin/types'
 import type { Taxonomies } from '../../app/types'
 
 const BADGE_TONES: Record<string, BadgeTone> = {
@@ -29,7 +29,7 @@ function formatDate(isoDate: string | null): string {
   return Number.isNaN(date.getTime()) ? 'never' : new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(date)
 }
 
-type Mode = 'overview' | 'publish' | 'withdraw'
+type Mode = 'overview' | 'publish' | 'withdraw' | 'edit'
 
 type ScholarshipDrawerProps = {
   scholarship: ScholarshipAdminRead
@@ -37,6 +37,10 @@ type ScholarshipDrawerProps = {
   taxonomies: Taxonomies | null
   onClose: () => void
   onPublished: (scholarshipId: string, result: { cycle_id: string; lifecycle_state: string; public_status: string }) => void
+  /** A cycle was corrected in place. Separate from onPublished because no new
+   *  cycle exists and the lifecycle state has not moved - only the list needs
+   *  refreshing so the panel shows what was just saved. */
+  onUpdated: (scholarshipId: string) => void
   onWithdrawn: (scholarshipId: string, result: WithdrawResponse) => void
 }
 
@@ -51,8 +55,9 @@ type ScholarshipDrawerProps = {
  * hand focus back to a button that no longer exists, so closing from the
  * publish form would never return focus to the row that opened it.
  */
-export function ScholarshipDrawer({ scholarship, reviewerName, taxonomies, onClose, onPublished, onWithdrawn }: ScholarshipDrawerProps) {
+export function ScholarshipDrawer({ scholarship, reviewerName, taxonomies, onClose, onPublished, onUpdated, onWithdrawn }: ScholarshipDrawerProps) {
   const [mode, setMode] = useState<Mode>('overview')
+  const [editingCycle, setEditingCycle] = useState<ScholarshipCycleAdminRead | null>(null)
   const publishFieldRef = useRef<HTMLInputElement>(null)
   const withdrawFieldRef = useRef<HTMLTextAreaElement>(null)
 
@@ -61,7 +66,7 @@ export function ScholarshipDrawer({ scholarship, reviewerName, taxonomies, onClo
   useEffect(() => {
     // Drawer only focuses on mount, so moving between modes needs its own
     // handoff into the form that just appeared.
-    if (mode === 'publish') publishFieldRef.current?.focus()
+    if (mode === 'publish' || mode === 'edit') publishFieldRef.current?.focus()
     if (mode === 'withdraw') withdrawFieldRef.current?.focus()
   }, [mode])
 
@@ -137,13 +142,35 @@ export function ScholarshipDrawer({ scholarship, reviewerName, taxonomies, onClo
               ) : (
                 <ul className="admin-cycle-detail-list">
                   {scholarship.cycles.map((cycle) => (
-                    <CycleDetail key={cycle.cycle_id} cycle={cycle} taxonomies={taxonomies} />
+                    <CycleDetail
+                      key={cycle.cycle_id}
+                      cycle={cycle}
+                      taxonomies={taxonomies}
+                      onEdit={
+                        withdrawn || !taxonomies
+                          ? undefined
+                          : () => { setEditingCycle(cycle); setMode('edit') }
+                      }
+                    />
                   ))}
                 </ul>
               )}
             </section>
           </PanelBody>
         </>
+      ) : mode === 'edit' && taxonomies && editingCycle ? (
+        <PublishCycleForm
+          // Keyed so switching between cycles rebuilds the baseline the diff
+          // is taken against, rather than carrying the last cycle's.
+          key={editingCycle.cycle_id}
+          scholarshipId={scholarship.scholarship_id}
+          taxonomies={taxonomies}
+          editing={editingCycle}
+          heading={`Edit ${editingCycle.provider_cycle_key}`}
+          firstFieldRef={publishFieldRef}
+          onCancel={() => { setEditingCycle(null); setMode('overview') }}
+          onPublished={() => onUpdated(scholarship.scholarship_id)}
+        />
       ) : mode === 'publish' && taxonomies ? (
         <PublishCycleForm
           scholarshipId={scholarship.scholarship_id}

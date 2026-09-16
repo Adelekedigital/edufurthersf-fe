@@ -18,15 +18,23 @@ function isAllowedAdminRoute(method: string, path: string[]): boolean {
   if (path.length === 3 && path[0] === 'reviews' && path[2] === 'decision') return method === 'POST'
   if (path.length === 1 && path[0] === 'scholarships') return method === 'GET'
   if (path.length === 3 && path[0] === 'scholarships' && (path[2] === 'publish' || path[2] === 'withdraw')) return method === 'POST'
+  if (path.length === 4 && path[0] === 'scholarships' && path[2] === 'cycles') return method === 'PATCH'
   if (path.length === 1 && path[0] === 'providers') return method === 'GET' || method === 'POST'
   return false
 }
+
+/** Methods that carry a request body, so forward() knows to read and pass one. */
+const BODY_METHODS = new Set(['POST', 'PATCH'])
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
   return forward(request, params)
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+  return forward(request, params)
+}
+
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
   return forward(request, params)
 }
 
@@ -48,12 +56,13 @@ async function forward(request: NextRequest, params: Promise<{ path: string[] }>
 
   const headers = new Headers({ Accept: request.headers.get('accept') ?? 'application/json' })
   headers.set('X-Service-Token', token)
-  if (request.method === 'POST') headers.set('Content-Type', request.headers.get('content-type') ?? 'application/json')
+  const sendsBody = BODY_METHODS.has(request.method)
+  if (sendsBody) headers.set('Content-Type', request.headers.get('content-type') ?? 'application/json')
 
   const response = await fetch(`${backendBaseUrl}/internal/admin/${path.join('/')}${request.nextUrl.search}`, {
     method: request.method,
     headers,
-    body: request.method === 'POST' ? await request.text() : undefined,
+    body: sendsBody ? await request.text() : undefined,
     cache: 'no-store',
   })
 

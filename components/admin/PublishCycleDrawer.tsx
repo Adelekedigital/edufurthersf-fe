@@ -1,9 +1,9 @@
 'use client'
 
 import { useRef, useState, type Ref } from 'react'
-import { publishCycle } from '../../app/admin/api'
+import { publishCycle, updateCycle } from '../../app/admin/api'
 import { Drawer, PanelActions, PanelBody } from './Drawer'
-import type { AdminApiError, DeadlinePrecision, FieldMode, OriginMode, PublicStatusValue, PublishPrefill, ScholarshipCycleAdminRead } from '../../app/admin/types'
+import type { AdminApiError, DeadlinePrecision, FieldMode, OriginMode, PublicStatusValue, PublishCycleRequest, PublishPrefill, ScholarshipCycleAdminRead, UpdateCycleRequest } from '../../app/admin/types'
 import type { Option, Taxonomies } from '../../app/types'
 import { MultiSelectCombobox } from './MultiSelectCombobox'
 
@@ -27,6 +27,21 @@ function seedString(value: unknown, fallback = ''): string {
   return typeof value === 'string' && value ? value : fallback
 }
 
+/** The keys whose value differs, as a partial request body.
+ *
+ * Compared as JSON so the array fields (destinations, levels, origins,
+ * fields, programme_names) compare by contents rather than by identity -
+ * they are rebuilt on every render, so every one of them would otherwise
+ * read as changed. */
+function diffPayload(before: PublishCycleRequest, after: PublishCycleRequest): UpdateCycleRequest {
+  const changed: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(after)) {
+    const previous = before[key as keyof PublishCycleRequest]
+    if (JSON.stringify(value) !== JSON.stringify(previous)) changed[key] = value
+  }
+  return changed as UpdateCycleRequest
+}
+
 /** Codes the current taxonomy still publishes. A code that has since been
  *  retired would leave the combobox visually empty while still passing the
  *  "length" submit check, then fail as a 422 - the same trap the review
@@ -47,6 +62,9 @@ type PublishCycleFormProps = {
   /** An existing cycle to carry forward, so publishing the next one is not a
    *  full retype of the last. */
   seedFrom?: ScholarshipCycleAdminRead
+  /** The cycle being corrected in place. Set this and the form saves changes
+   *  back to that cycle instead of publishing a new one. */
+  editing?: ScholarshipCycleAdminRead
   /** Heading for the body when the panel title is the scholarship rather than the action. */
   heading?: string
   firstFieldRef?: Ref<HTMLInputElement>
@@ -60,18 +78,20 @@ type PublishCycleFormProps = {
  * scholarship (inside that scholarship's panel, alongside withdraw) and from
  * the "publish now" prompt after approving a review, which has no panel of
  * its own. See PublishCycleDrawer below for the standalone case. */
-export function PublishCycleForm({ scholarshipId, officialHomeUrl, taxonomies, prefill, seedFrom, heading, firstFieldRef, onCancel, onPublished }: PublishCycleFormProps) {
-  const facts: Record<string, unknown> = seedFrom?.facts ?? {}
+export function PublishCycleForm({ scholarshipId, officialHomeUrl, taxonomies, prefill, seedFrom, editing, heading, firstFieldRef, onCancel, onPublished }: PublishCycleFormProps) {
+  const source = editing ?? seedFrom
+  const facts: Record<string, unknown> = source?.facts ?? {}
 
-  const [providerCycleKey, setProviderCycleKey] = useState(() => seedString(seedFrom?.provider_cycle_key))
-  const [applicantSegment, setApplicantSegment] = useState(() => seedString(seedFrom?.applicant_segment, 'default'))
-  const [officialCycleUrl, setOfficialCycleUrl] = useState(() => seedString(seedFrom?.official_cycle_url, officialHomeUrl ?? ''))
-  const [publicStatus, setPublicStatus] = useState<PublicStatusValue | ''>(() => (seedFrom?.public_status ?? '') as PublicStatusValue | '')
-  const [statusValidUntil, setStatusValidUntil] = useState(() => toDateTimeInput(seedFrom?.status_valid_until))
-  // Not seeded: "last verified" and "evidence is current" are claims that
-  // someone checked the source today. Copying last cycle's values forward
-  // would assert verification work that has not happened.
-  const [lastVerifiedAt, setLastVerifiedAt] = useState('')
+  const [providerCycleKey, setProviderCycleKey] = useState(() => seedString(source?.provider_cycle_key))
+  const [applicantSegment, setApplicantSegment] = useState(() => seedString(source?.applicant_segment, 'default'))
+  const [officialCycleUrl, setOfficialCycleUrl] = useState(() => seedString(source?.official_cycle_url, officialHomeUrl ?? ''))
+  const [publicStatus, setPublicStatus] = useState<PublicStatusValue | ''>(() => (source?.public_status ?? '') as PublicStatusValue | '')
+  const [statusValidUntil, setStatusValidUntil] = useState(() => toDateTimeInput(source?.status_valid_until))
+  // Carried forward only when editing. On a new cycle these two are claims
+  // that someone checked the source today, and copying the last cycle's
+  // values would assert verification work that has not happened; on an edit
+  // they are the cycle's own record, and blanking them would destroy it.
+  const [lastVerifiedAt, setLastVerifiedAt] = useState(() => (editing ? toDateTimeInput(editing.last_verified_at) : ''))
   const [destinations, setDestinations] = useState<string[]>(() => seedCodes(facts.destinations, taxonomies.destinations))
   // The extractor emits level_mentions from its own keyword list, which does
   // not always intersect the degree taxonomy - "bachelors" is a real possible
@@ -79,7 +99,7 @@ export function PublishCycleForm({ scholarshipId, officialHomeUrl, taxonomies, p
   // would leave the select visually empty while still passing the
   // "levels.length" submit check, so it would fail as a 422 on publish.
   const [levels, setLevels] = useState<string[]>(() => (
-    seedFrom ? seedCodes(facts.levels, taxonomies.degrees) : seedCodes(prefill?.levels, taxonomies.degrees)
+    source ? seedCodes(facts.levels, taxonomies.degrees) : seedCodes(prefill?.levels, taxonomies.degrees)
   ))
   const [originMode, setOriginMode] = useState<OriginMode>(() => (facts.origin_mode as OriginMode) ?? 'unknown')
   const [origins, setOrigins] = useState<string[]>(() => seedCodes(facts.origins, taxonomies.countries))
@@ -88,7 +108,7 @@ export function PublishCycleForm({ scholarshipId, officialHomeUrl, taxonomies, p
   const [programmeNames, setProgrammeNames] = useState(() => (
     Array.isArray(facts.programme_names) ? facts.programme_names.filter((item): item is string => typeof item === 'string').join(', ') : ''
   ))
-  const [evidenceFresh, setEvidenceFresh] = useState(false)
+  const [evidenceFresh, setEvidenceFresh] = useState(() => (editing ? facts.evidence_fresh === true : false))
   const [deadlineAt, setDeadlineAt] = useState(() => toDateTimeInput(facts.deadline_at))
   const [deadlinePrecision, setDeadlinePrecision] = useState<DeadlinePrecision>(() => (facts.deadline_precision as DeadlinePrecision) ?? 'date')
   const [deadlineTimezone, setDeadlineTimezone] = useState(() => seedString(facts.deadline_timezone))
@@ -103,15 +123,51 @@ export function PublishCycleForm({ scholarshipId, officialHomeUrl, taxonomies, p
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // The key is carried over so the reviewer can see what the last cycle was
-  // called and edit from it, but it has to change: the backend rejects a
-  // duplicate key with a 409. Blocking here turns that into a message next to
-  // the field instead of a failed request after the form is filled in.
-  const duplicateCycleKey = Boolean(seedFrom && providerCycleKey.trim() === seedFrom.provider_cycle_key)
+  const buildPayload = (): PublishCycleRequest => ({
+    provider_cycle_key: providerCycleKey.trim(),
+    applicant_segment: applicantSegment.trim() || 'default',
+    official_cycle_url: officialCycleUrl.trim(),
+    public_status: publicStatus as PublicStatusValue,
+    status_valid_until: toIsoOrUndefined(statusValidUntil) ?? null,
+    last_verified_at: toIsoOrUndefined(lastVerifiedAt) ?? null,
+    destinations,
+    levels,
+    origin_mode: originMode,
+    origins: originMode === 'restricted' ? origins : [],
+    field_mode: fieldMode,
+    fields: fieldMode === 'restricted' ? fields : [],
+    programme_names: programmeNames.split(',').map((item) => item.trim()).filter(Boolean),
+    evidence_fresh: evidenceFresh,
+    deadline_at: toIsoOrUndefined(deadlineAt) ?? null,
+    deadline_precision: deadlinePrecision,
+    deadline_timezone: deadlineTimezone.trim() || null,
+    eligibility_note: eligibilityNote.trim() || null,
+    expected_reopen_month: expectedReopenMonth ? Number(expectedReopenMonth) : null,
+    funding_type: fundingType || null,
+  })
+
+  // The form starts seeded, so the payload built on mount is what the cycle
+  // already says. Diffing against it is what keeps the PATCH partial - two
+  // reviewers touching different fields do not overwrite each other, and the
+  // backend's audit entry names the fields that actually moved instead of
+  // every field on every save. Held in state, not a ref: it is read during
+  // render, and a lazy initialiser is what captures it exactly once.
+  const [baseline] = useState(buildPayload)
+
+  const changes = editing ? diffPayload(baseline, buildPayload()) : null
+  const changeCount = changes ? Object.keys(changes).length : 0
+
+  // Only meaningful when carrying a cycle forward: that publishes a second
+  // cycle, and the backend rejects a duplicate key with a 409. Editing the
+  // cycle in place keeps its own key, so the check does not apply there.
+  const duplicateCycleKey = Boolean(
+    seedFrom && !editing && providerCycleKey.trim() === seedFrom.provider_cycle_key
+  )
 
   const canSubmit = Boolean(
     providerCycleKey.trim() && !duplicateCycleKey && officialCycleUrl.trim() && publicStatus && destinations.length && levels.length &&
-    (originMode !== 'restricted' || origins.length) && (fieldMode !== 'restricted' || fields.length)
+    (originMode !== 'restricted' || origins.length) && (fieldMode !== 'restricted' || fields.length) &&
+    (!editing || changeCount > 0)
   )
 
   const submit = async () => {
@@ -119,28 +175,9 @@ export function PublishCycleForm({ scholarshipId, officialHomeUrl, taxonomies, p
     setSubmitting(true)
     setError(null)
     try {
-      const result = await publishCycle(scholarshipId, {
-        provider_cycle_key: providerCycleKey.trim(),
-        applicant_segment: applicantSegment.trim() || 'default',
-        official_cycle_url: officialCycleUrl.trim(),
-        public_status: publicStatus,
-        status_valid_until: toIsoOrUndefined(statusValidUntil),
-        last_verified_at: toIsoOrUndefined(lastVerifiedAt),
-        destinations,
-        levels,
-        origin_mode: originMode,
-        origins: originMode === 'restricted' ? origins : [],
-        field_mode: fieldMode,
-        fields: fieldMode === 'restricted' ? fields : [],
-        programme_names: programmeNames.split(',').map((item) => item.trim()).filter(Boolean),
-        evidence_fresh: evidenceFresh,
-        deadline_at: toIsoOrUndefined(deadlineAt),
-        deadline_precision: deadlinePrecision,
-        deadline_timezone: deadlineTimezone.trim() || undefined,
-        eligibility_note: eligibilityNote.trim() || undefined,
-        expected_reopen_month: expectedReopenMonth ? Number(expectedReopenMonth) : undefined,
-        funding_type: fundingType || undefined,
-      })
+      const result = editing && changes
+        ? await updateCycle(scholarshipId, editing.cycle_id, changes)
+        : await publishCycle(scholarshipId, buildPayload())
       onPublished(scholarshipId, result)
     } catch (submitError) {
       const apiError = submitError as AdminApiError
@@ -159,7 +196,9 @@ export function PublishCycleForm({ scholarshipId, officialHomeUrl, taxonomies, p
       <PanelActions>
         <button type="button" onClick={onCancel} disabled={submitting}>Cancel</button>
         <button type="button" className="admin-auth-submit" onClick={submit} disabled={!canSubmit || submitting}>
-          {submitting ? 'Publishing…' : 'Publish'}
+          {submitting
+            ? (editing ? 'Saving…' : 'Publishing…')
+            : (editing ? 'Save changes' : 'Publish')}
         </button>
       </PanelActions>
 
@@ -168,7 +207,14 @@ export function PublishCycleForm({ scholarshipId, officialHomeUrl, taxonomies, p
 
         {error ? <p className="admin-auth-error" role="alert">{error}</p> : null}
 
-        {seedFrom ? (
+        {editing ? (
+          <p className="admin-panel-note">
+            Editing <strong>{editing.provider_cycle_key}</strong> in place — this is live, so a change here is what applicants see next.
+            {changeCount > 0
+              ? ` ${changeCount} ${changeCount === 1 ? 'field' : 'fields'} changed; only those are saved.`
+              : ' Nothing changed yet.'}
+          </p>
+        ) : seedFrom ? (
           <p className="admin-panel-note">
             Carried over from <strong>{seedFrom.provider_cycle_key}</strong>. This publishes a <em>new</em> cycle rather than changing
             that one, so give it its own key. Re-check the source before saving — the verification date and evidence box are left blank

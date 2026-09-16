@@ -65,7 +65,13 @@ function restriction(mode: unknown, names: string[], allLabel: string): string |
  * `facts`, as taxonomy codes; they are resolved to labels here because "FR"
  * and "stipend_only" are not what a reviewer is checking against the source.
  */
-export function CycleDetail({ cycle, taxonomies }: { cycle: ScholarshipCycleAdminRead; taxonomies: Taxonomies | null }) {
+export function CycleDetail({ cycle, taxonomies, onEdit }: {
+  cycle: ScholarshipCycleAdminRead
+  taxonomies: Taxonomies | null
+  /** Omitted when the cycle cannot be corrected - a withdrawn record, or
+   *  taxonomies still loading, which the form needs to resolve its codes. */
+  onEdit?: () => void
+}) {
   const facts = cycle.facts ?? {}
   const empty: Option[] = []
   const destinations = labelList(taxonomies?.destinations ?? empty, facts.destinations)
@@ -83,7 +89,14 @@ export function CycleDetail({ cycle, taxonomies }: { cycle: ScholarshipCycleAdmi
     <li className="admin-cycle-detail">
       <div className="admin-cycle-detail-head">
         <strong>{cycle.provider_cycle_key}</strong>
-        <Badge tone={STATUS_TONES[evaluatedStatus] ?? 'neutral'}>{evaluatedStatus.replace(/_/g, ' ')}</Badge>
+        <div className="admin-cycle-detail-head-end">
+          <Badge tone={STATUS_TONES[evaluatedStatus] ?? 'neutral'}>{evaluatedStatus.replace(/_/g, ' ')}</Badge>
+          {onEdit ? (
+            <button type="button" className="admin-link-button" onClick={onEdit}>
+              Edit<span className="visually-hidden"> {cycle.provider_cycle_key}</span>
+            </button>
+          ) : null}
+        </div>
       </div>
 
       <dl className="admin-detail-list">

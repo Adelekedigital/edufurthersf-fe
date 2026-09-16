@@ -338,6 +338,52 @@ test.describe('admin accessibility', () => {
     await expect(panel.getByText('a cycle cannot reuse one')).toHaveCount(0)
   })
 
+  test('a cycle can be edited in place and sends only what changed', async ({ page }) => {
+    const patches: { method: string; url: string; body: unknown }[] = []
+    await page.route('**/api/admin/scholarships/*/cycles/*', async (route) => {
+      patches.push({
+        method: route.request().method(),
+        url: route.request().url(),
+        body: route.request().postDataJSON(),
+      })
+      await route.fulfill(json({
+        scholarship_id: scholarship.scholarship_id,
+        cycle_id: scholarship.cycles[0].cycle_id,
+        lifecycle_state: 'published',
+        public_status: 'open_verified',
+      }))
+    })
+
+    await page.goto('/admin/scholarships')
+    await page.getByRole('button', { name: 'Example Award' }).click()
+    await page.getByRole('button', { name: 'Edit 2027-intake' }).click()
+
+    const panel = page.locator('.admin-drawer')
+    // Editing keeps the cycle's own key, unlike carrying one forward.
+    await expect(panel.getByLabel('Provider cycle key')).toHaveValue('2027-intake')
+    await expect(panel.getByLabel('Provider cycle key')).not.toHaveAttribute('aria-invalid', 'true')
+    // Nothing has changed yet, so there is nothing to save.
+    await expect(panel.getByRole('button', { name: 'Save changes' })).toBeDisabled()
+    await expect(panel.locator('.admin-panel-note')).toContainText('Nothing changed yet')
+
+    await panel.getByLabel('Expected reopen month (optional)').selectOption('9')
+    await expect(panel.locator('.admin-panel-note')).toContainText('1 field changed')
+    await panel.getByRole('button', { name: 'Save changes' }).click()
+
+    await expect.poll(() => patches.length).toBe(1)
+    expect(patches[0].method).toBe('PATCH')
+    // Only the edited field travels: the backend's audit entry names the
+    // fields that moved, so sending everything would make it meaningless.
+    expect(patches[0].body).toEqual({ expected_reopen_month: 9 })
+  })
+
+  test('a withdrawn cycle offers no edit', async ({ page }) => {
+    await page.goto('/admin/scholarships')
+    await page.getByRole('button', { name: 'Pulled Award' }).click()
+    await expect(page.locator('.admin-cycle-detail')).toBeVisible()
+    await expect(page.getByRole('button', { name: /^Edit/ })).toHaveCount(0)
+  })
+
   test('a withdrawn scholarship shows no actions at all', async ({ page }) => {
     await page.goto('/admin/scholarships')
     await page.getByRole('button', { name: 'Pulled Award' }).click()
