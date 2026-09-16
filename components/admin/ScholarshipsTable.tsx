@@ -8,8 +8,7 @@ import type { ProviderRead, ScholarshipAdminRead, ScholarshipFilters } from '../
 import type { Taxonomies } from '../../app/types'
 import { Badge, type BadgeTone } from './Badge'
 import { ProviderPicker } from './ProviderPicker'
-import { PublishCycleModal } from './PublishCycleModal'
-import { WithdrawModal } from './WithdrawModal'
+import { ScholarshipDrawer } from './ScholarshipDrawer'
 
 const LIFECYCLE_STATES = ['discovered', 'needs_review', 'published', 'withdrawn']
 const PUBLIC_STATUSES = ['open_verified', 'expected_to_reopen', 'status_unknown']
@@ -51,8 +50,7 @@ export function ScholarshipsTable({ reviewerName }: { reviewerName: string }) {
   const [qDraft, setQDraft] = useState('')
   const [providerFilterId, setProviderFilterId] = useState('')
 
-  const [publishTarget, setPublishTarget] = useState<ScholarshipAdminRead | null>(null)
-  const [withdrawTarget, setWithdrawTarget] = useState<ScholarshipAdminRead | null>(null)
+  const [activeScholarship, setActiveScholarship] = useState<ScholarshipAdminRead | null>(null)
 
   const loadPage = useCallback(async (currentFilters: ScholarshipFilters, offset: number) => {
     const response = await getScholarships(currentFilters, offset)
@@ -98,7 +96,9 @@ export function ScholarshipsTable({ reviewerName }: { reviewerName: string }) {
       header: 'Scholarship',
       cell: (info) => (
         <div className="admin-cell-title">
-          <strong>{info.getValue()}</strong>
+          <button type="button" className="admin-link-button" onClick={() => setActiveScholarship(info.row.original)}>
+            {info.getValue()}
+          </button>
           <p className="admin-cell-excerpt">{info.row.original.provider_name}</p>
         </div>
       ),
@@ -133,36 +133,16 @@ export function ScholarshipsTable({ reviewerName }: { reviewerName: string }) {
         return formatDate(dates.sort().at(-1) ?? null)
       },
     }),
-    columnHelper.display({
-      id: 'actions',
-      header: 'Actions',
-      cell: (info) => {
-        const scholarship = info.row.original
-        const withdrawn = scholarship.lifecycle_state === 'withdrawn'
-        return (
-          <div className="admin-row-actions">
-            <button
-              type="button"
-              className="admin-link-button"
-              disabled={withdrawn || !taxonomies}
-              title={!taxonomies && !withdrawn ? 'Waiting on taxonomy data to load…' : undefined}
-              onClick={() => setPublishTarget(scholarship)}
-            >
-              Publish cycle
-            </button>
-            <button type="button" className="admin-link-button admin-danger-link" disabled={withdrawn} onClick={() => setWithdrawTarget(scholarship)}>Withdraw</button>
-          </div>
-        )
-      },
-    }),
-  ], [taxonomies])
+    // No actions column: publishing and withdrawing live in the panel the row
+    // opens, next to the detail they are a judgement about.
+  ], [])
 
   const table = useReactTable({ data: scholarships, columns, getCoreRowModel: getCoreRowModel() })
 
   if (loadState === 'error') return <p className="admin-auth-error" role="alert">{loadError}</p>
 
   return (
-    <div className="admin-scholarships">
+    <div className={`admin-scholarships${activeScholarship ? ' admin-page-with-drawer-wide' : ''}`}>
       <div className="admin-queue-header">
         <h1>Scholarships</h1>
         <p>{total} total</p>
@@ -206,6 +186,7 @@ export function ScholarshipsTable({ reviewerName }: { reviewerName: string }) {
             value={providerFilterId}
             onChange={(providerId) => { setProviderFilterId(providerId); setFilters((current) => ({ ...current, provider_id: providerId || undefined })) }}
             onProviderCreated={(provider) => setProviders((current) => [...current, provider])}
+            allowCreate={false}
           />
         </div>
       </div>
@@ -227,13 +208,18 @@ export function ScholarshipsTable({ reviewerName }: { reviewerName: string }) {
               ))}
             </thead>
             <tbody>
-              {table.getRowModel().rows.map((row) => (
-                <tr key={row.id}>
-                  {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>
-                  ))}
-                </tr>
-              ))}
+              {table.getRowModel().rows.map((row) => {
+                const isActive = row.original.scholarship_id === activeScholarship?.scholarship_id
+                return (
+                  // Marks which row the open panel belongs to - without the
+                  // actions column there is nothing else tying the two together.
+                  <tr key={row.id} className={isActive ? 'admin-row-active' : undefined} aria-current={isActive ? 'true' : undefined}>
+                    {row.getVisibleCells().map((cell) => (
+                      <td key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>
+                    ))}
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
@@ -243,30 +229,23 @@ export function ScholarshipsTable({ reviewerName }: { reviewerName: string }) {
         <button type="button" className="admin-link-button" onClick={() => loadPage(filters, scholarships.length)}>Load more</button>
       ) : null}
 
-      {publishTarget && taxonomies ? (
-        <PublishCycleModal
-          scholarshipId={publishTarget.scholarship_id}
-          scholarshipName={publishTarget.name}
-          officialHomeUrl={publishTarget.official_home_url}
+      {activeScholarship ? (
+        <ScholarshipDrawer
+          // Remount per scholarship so a previous cycle's half-filled form -
+          // and the mode it was left in - never carries into the next one.
+          key={activeScholarship.scholarship_id}
+          scholarship={activeScholarship}
+          reviewerName={reviewerName}
           taxonomies={taxonomies}
-          onClose={() => setPublishTarget(null)}
+          onClose={() => setActiveScholarship(null)}
           onPublished={(scholarshipId, result) => {
             replaceScholarship(scholarshipId, (current) => ({ ...current, lifecycle_state: result.lifecycle_state }))
-            setPublishTarget(null)
+            setActiveScholarship(null)
             loadPage(filters, 0)
           }}
-        />
-      ) : null}
-
-      {withdrawTarget ? (
-        <WithdrawModal
-          scholarshipId={withdrawTarget.scholarship_id}
-          scholarshipName={withdrawTarget.name}
-          reviewerName={reviewerName}
-          onClose={() => setWithdrawTarget(null)}
           onWithdrawn={(scholarshipId, result) => {
             replaceScholarship(scholarshipId, (current) => ({ ...current, lifecycle_state: result.lifecycle_state }))
-            setWithdrawTarget(null)
+            setActiveScholarship(null)
           }}
         />
       ) : null}

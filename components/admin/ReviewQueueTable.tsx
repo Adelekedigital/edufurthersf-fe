@@ -8,8 +8,8 @@ import type { ProviderRead, PublishPrefill, ReviewDecisionResponse, ReviewTaskSu
 import type { Taxonomies } from '../../app/types'
 import { Badge, type BadgeTone } from './Badge'
 import { excerptPreview } from './ExcerptText'
-import { PublishCycleModal } from './PublishCycleModal'
-import { ReviewDecisionModal } from './ReviewDecisionModal'
+import { PublishCycleDrawer } from './PublishCycleDrawer'
+import { ReviewDecisionDrawer } from './ReviewDecisionDrawer'
 
 const MAX_BULK_SELECTION = 10
 
@@ -200,7 +200,7 @@ export function ReviewQueueTable({ reviewerName }: { reviewerName: string }) {
   if (loadState === 'error') return <p className="admin-auth-error" role="alert">{loadError}</p>
 
   return (
-    <div className="admin-review-queue">
+    <div className={`admin-review-queue${activeTask ? ' admin-page-with-drawer' : ''}`}>
       <div className="admin-queue-header">
         <h1>Review queue</h1>
         <p>{openCount} open item{openCount === 1 ? '' : 's'}</p>
@@ -216,7 +216,8 @@ export function ReviewQueueTable({ reviewerName }: { reviewerName: string }) {
             placeholder="Reason for rejecting all selected"
             aria-label="Reason for bulk rejection"
           />
-          <button type="button" onClick={bulkReject} disabled={bulkSubmitting || !bulkReason.trim()}>
+          {/* Destructive, and irreversible for up to ten records at once. */}
+          <button type="button" className="admin-danger-button" onClick={bulkReject} disabled={bulkSubmitting || !bulkReason.trim()}>
             {bulkSubmitting ? 'Rejecting…' : 'Reject selected'}
           </button>
           {bulkError ? <span className="admin-auth-error" role="alert">{bulkError}</span> : null}
@@ -257,17 +258,21 @@ export function ReviewQueueTable({ reviewerName }: { reviewerName: string }) {
       {publishPrompt && !publishModalOpen ? (
         <div className="admin-toast">
           <span>Approved. Publish a cycle for &quot;{publishPrompt.scholarshipName}&quot; now?</span>
-          <button type="button" onClick={() => setPublishModalOpen(true)}>Publish now</button>
+          <button type="button" className="admin-auth-submit" onClick={() => setPublishModalOpen(true)}>Publish now</button>
           <button type="button" className="admin-link-button" onClick={() => setPublishPrompt(null)}>Dismiss</button>
         </div>
       ) : null}
 
       {activeTask ? (
-        <ReviewDecisionModal
+        <ReviewDecisionDrawer
+          // Remount per candidate: switching rows with the panel open must not
+          // carry the previous decision's form state across.
+          key={activeTask.review_task_id}
           task={activeTask}
           reviewerName={reviewerName}
           providers={providers}
           awardTypes={taxonomies?.award_types ?? []}
+          countries={taxonomies?.countries ?? []}
           onProviderCreated={(provider) => setProviders((current) => [...current, provider])}
           onClose={() => setActiveTask(null)}
           onDecided={(reviewTaskId, decision, result: ReviewDecisionResponse, approvedInfo) => {
@@ -287,7 +292,7 @@ export function ReviewQueueTable({ reviewerName }: { reviewerName: string }) {
       ) : null}
 
       {publishPrompt && publishModalOpen && taxonomies ? (
-        <PublishCycleModal
+        <PublishCycleDrawer
           scholarshipId={publishPrompt.scholarshipId}
           scholarshipName={publishPrompt.scholarshipName}
           officialHomeUrl={publishPrompt.officialHomeUrl}

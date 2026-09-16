@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { decideReview } from '../../app/admin/api'
 import type { AdminApiError, ProviderRead, ReviewDecision, ReviewDecisionResponse, ReviewTaskSummary } from '../../app/admin/types'
 import type { Option } from '../../app/types'
+import { Drawer, PanelActions, PanelBody } from './Drawer'
 import { ExcerptText } from './ExcerptText'
 import { ProviderPicker } from './ProviderPicker'
 
@@ -15,18 +16,29 @@ function slugify(value: string): string {
     .replace(/^-+|-+$/g, '')
 }
 
-type ReviewDecisionModalProps = {
+type ReviewDecisionDrawerProps = {
   task: ReviewTaskSummary
   reviewerName: string
   providers: ProviderRead[]
   awardTypes: Option[]
+  countries: Option[]
   onProviderCreated: (provider: ProviderRead) => void
   onClose: () => void
   onDecided: (reviewTaskId: string, decision: ReviewDecision, result: ReviewDecisionResponse, approvedInfo?: { canonicalName: string; officialHomeUrl: string }) => void
 }
 
-export function ReviewDecisionModal({ task, reviewerName, providers, awardTypes, onProviderCreated, onClose, onDecided }: ReviewDecisionModalProps) {
-  const dialogRef = useRef<HTMLDialogElement>(null)
+/** Side panel for reviewing one candidate.
+ *
+ * Deliberately non-modal: the point is to keep the queue readable and
+ * clickable so a reviewer can work straight down 800+ items without the
+ * panel closing and losing their place between each one. That rules out
+ * <dialog>.showModal(), which makes the rest of the page inert.
+ *
+ * The parent keys this by review_task_id so switching rows remounts it -
+ * otherwise the previous candidate's typed reason and provider would carry
+ * over into the next decision.
+ */
+export function ReviewDecisionDrawer({ task, reviewerName, providers, awardTypes, countries, onProviderCreated, onClose, onDecided }: ReviewDecisionDrawerProps) {
   const reasonRef = useRef<HTMLTextAreaElement>(null)
   const [decision, setDecision] = useState<ReviewDecision>('reject')
   const [providerId, setProviderId] = useState('')
@@ -38,25 +50,6 @@ export function ReviewDecisionModal({ task, reviewerName, providers, awardTypes,
   const [reason, setReason] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    const dialog = dialogRef.current
-    if (!dialog) return
-    const previouslyFocused = document.activeElement as HTMLElement | null
-    dialog.showModal()
-    // React's autoFocus prop calls .focus() at commit time, before elements
-    // inside a <dialog> are focusable (that only happens once showModal()
-    // runs) - it silently no-ops, and showModal() then defaults focus to the
-    // first focusable descendant (the close button). Focus explicitly here
-    // instead, after the dialog is actually open.
-    reasonRef.current?.focus()
-    return () => {
-      if (dialog.open) dialog.close()
-      // Native <dialog> doesn't restore focus to the trigger on its own -
-      // without this, a keyboard user closing the modal lands on <body>.
-      previouslyFocused?.focus()
-    }
-  }, [])
 
   const handleCanonicalNameChange = (value: string) => {
     setCanonicalName(value)
@@ -93,27 +86,40 @@ export function ReviewDecisionModal({ task, reviewerName, providers, awardTypes,
   }
 
   return (
-    <dialog className="admin-modal" ref={dialogRef} aria-labelledby="review-decision-title" onCancel={(event) => { event.preventDefault(); onClose() }}>
-      <div className="admin-modal-inner">
-        <header className="admin-modal-header">
-          <h2 id="review-decision-title">{task.raw_title ?? 'Untitled candidate'}</h2>
-          <button className="modal-close" type="button" aria-label="Close" onClick={onClose}>{'×'}</button>
-        </header>
+    <Drawer title={task.raw_title ?? 'Untitled candidate'} initialFocusRef={reasonRef} onClose={onClose}>
+      {/* Which decision you are making is a choice of view, so it pins to the
+          top like tabs. The buttons that commit it sit down in the body with
+          the evidence and the reason they apply to. */}
+      <div className="admin-decision-toggle" role="radiogroup" aria-label="Decision">
+        <button type="button" role="radio" aria-checked={decision === 'reject'} className={decision === 'reject' ? 'active' : ''} onClick={() => setDecision('reject')}>Reject</button>
+        <button type="button" role="radio" aria-checked={decision === 'approve'} className={decision === 'approve' ? 'active' : ''} onClick={() => setDecision('approve')}>Approve</button>
+      </div>
+
+      <PanelBody>
+        {error ? <p className="admin-auth-error" role="alert">{error}</p> : null}
 
         {task.raw_excerpt ? <ExcerptText text={task.raw_excerpt} /> : null}
-        {task.source_url ? <a href={task.source_url} target="_blank" rel="noreferrer" className="admin-modal-source">View source</a> : null}
+        {task.source_url ? <a href={task.source_url} target="_blank" rel="noreferrer" className="admin-panel-source">View source</a> : null}
 
-        <div className="admin-decision-toggle" role="radiogroup" aria-label="Decision">
-          <button type="button" role="radio" aria-checked={decision === 'reject'} className={decision === 'reject' ? 'active' : ''} onClick={() => setDecision('reject')}>Reject</button>
-          <button type="button" role="radio" aria-checked={decision === 'approve'} className={decision === 'approve' ? 'active' : ''} onClick={() => setDecision('approve')}>Approve</button>
-        </div>
+        <PanelActions>
+          <button type="button" onClick={onClose} disabled={submitting}>Cancel</button>
+          <button type="button" className="admin-auth-submit" onClick={submit} disabled={!canSubmit || submitting}>
+            {submitting ? 'Saving…' : decision === 'approve' ? 'Approve' : 'Reject'}
+          </button>
+        </PanelActions>
 
         {decision === 'approve' ? (
           <div className="admin-form-grid">
-            <label className="admin-field">
-              <span>Provider</span>
-              <ProviderPicker providers={providers} value={providerId} onChange={setProviderId} onProviderCreated={onProviderCreated} />
-            </label>
+            {/* Not a <label>: it wraps a search input, a "add a new provider"
+                button and that button's whole form. A label forwards every
+                click inside it to its first control, so clicking anything in
+                here was landing on the provider search box instead - toggling
+                its dropdown open, taking focus, and shifting the form under
+                the pointer mid-click. The combobox carries its own aria-label. */}
+            <div className="admin-field">
+              <span className="admin-field-label">Provider</span>
+              <ProviderPicker providers={providers} value={providerId} onChange={setProviderId} onProviderCreated={onProviderCreated} countries={countries} />
+            </div>
             <label className="admin-field">
               <span>Canonical name</span>
               <input type="text" value={canonicalName} onChange={(event) => handleCanonicalNameChange(event.target.value)} />
@@ -136,20 +142,13 @@ export function ReviewDecisionModal({ task, reviewerName, providers, awardTypes,
           </div>
         ) : null}
 
-        <label className="admin-field">
+        <label className="admin-field admin-field-reason">
           <span>Reason{decision === 'approve' ? ' (internal note)' : ''}</span>
-          <textarea ref={reasonRef} value={reason} onChange={(event) => setReason(event.target.value)} rows={3} />
+          {/* Rejecting makes this the only thing being written, so it gets the
+              room the approve fields would otherwise be using. */}
+          <textarea ref={reasonRef} value={reason} onChange={(event) => setReason(event.target.value)} rows={decision === 'approve' ? 3 : 8} />
         </label>
-
-        {error ? <p className="admin-auth-error" role="alert">{error}</p> : null}
-
-        <div className="admin-modal-actions">
-          <button type="button" onClick={onClose} disabled={submitting}>Cancel</button>
-          <button type="button" className="admin-auth-submit" onClick={submit} disabled={!canSubmit || submitting}>
-            {submitting ? 'Saving…' : decision === 'approve' ? 'Approve' : 'Reject'}
-          </button>
-        </div>
-      </div>
-    </dialog>
+      </PanelBody>
+    </Drawer>
   )
 }

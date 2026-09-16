@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState, type Ref } from 'react'
 import { publishCycle } from '../../app/admin/api'
+import { Drawer, PanelActions, PanelBody } from './Drawer'
 import type { AdminApiError, DeadlinePrecision, FieldMode, OriginMode, PublicStatusValue, PublishPrefill } from '../../app/admin/types'
 import type { Option, Taxonomies } from '../../app/types'
 import { MultiSelectCombobox } from './MultiSelectCombobox'
@@ -14,19 +15,25 @@ function toIsoOrUndefined(localDateTime: string): string | undefined {
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
-type PublishCycleModalProps = {
+type PublishCycleFormProps = {
   scholarshipId: string
-  scholarshipName: string
   officialHomeUrl?: string
   taxonomies: Taxonomies
   prefill?: PublishPrefill
-  onClose: () => void
+  /** Heading for the body when the panel title is the scholarship rather than the action. */
+  heading?: string
+  firstFieldRef?: Ref<HTMLInputElement>
+  onCancel: () => void
   onPublished: (scholarshipId: string, result: { cycle_id: string; lifecycle_state: string; public_status: string }) => void
 }
 
-export function PublishCycleModal({ scholarshipId, scholarshipName, officialHomeUrl, taxonomies, prefill, onClose, onPublished }: PublishCycleModalProps) {
-  const dialogRef = useRef<HTMLDialogElement>(null)
-  const providerCycleKeyRef = useRef<HTMLInputElement>(null)
+/** The publish-a-cycle form, without a panel around it.
+ *
+ * Split from the panel because it is reached two ways: straight from a
+ * scholarship (inside that scholarship's panel, alongside withdraw) and from
+ * the "publish now" prompt after approving a review, which has no panel of
+ * its own. See PublishCycleDrawer below for the standalone case. */
+export function PublishCycleForm({ scholarshipId, officialHomeUrl, taxonomies, prefill, heading, firstFieldRef, onCancel, onPublished }: PublishCycleFormProps) {
   const [providerCycleKey, setProviderCycleKey] = useState('')
   const [applicantSegment, setApplicantSegment] = useState('default')
   const [officialCycleUrl, setOfficialCycleUrl] = useState(officialHomeUrl ?? '')
@@ -57,20 +64,6 @@ export function PublishCycleModal({ scholarshipId, scholarshipName, officialHome
   const [fundingType, setFundingType] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    const dialog = dialogRef.current
-    if (!dialog) return
-    const previouslyFocused = document.activeElement as HTMLElement | null
-    dialog.showModal()
-    // See ReviewDecisionModal - React's autoFocus no-ops here since elements
-    // inside a <dialog> aren't focusable until showModal() runs.
-    providerCycleKeyRef.current?.focus()
-    return () => {
-      if (dialog.open) dialog.close()
-      previouslyFocused?.focus()
-    }
-  }, [])
 
   const canSubmit = Boolean(
     providerCycleKey.trim() && officialCycleUrl.trim() && publicStatus && destinations.length && levels.length &&
@@ -118,19 +111,25 @@ export function PublishCycleModal({ scholarshipId, scholarshipName, officialHome
   )
 
   return (
-    <dialog className="admin-modal" ref={dialogRef} aria-labelledby="publish-title" onCancel={(event) => { event.preventDefault(); onClose() }}>
-      <div className="admin-modal-inner">
-        <header className="admin-modal-header">
-          <h2 id="publish-title">Publish a cycle for {scholarshipName}</h2>
-          <button className="modal-close" type="button" aria-label="Close" onClick={onClose}>{'×'}</button>
-        </header>
+    <>
+      <PanelActions>
+        <button type="button" onClick={onCancel} disabled={submitting}>Cancel</button>
+        <button type="button" className="admin-auth-submit" onClick={submit} disabled={!canSubmit || submitting}>
+          {submitting ? 'Publishing…' : 'Publish'}
+        </button>
+      </PanelActions>
+
+      <PanelBody>
+        {heading ? <h3 className="admin-panel-heading">{heading}</h3> : null}
+
+        {error ? <p className="admin-auth-error" role="alert">{error}</p> : null}
 
         <section className="admin-form-section">
           <h3>Cycle identity</h3>
           <div className="admin-form-grid">
             <label className="admin-field">
               <span>Provider cycle key</span>
-              <input ref={providerCycleKeyRef} type="text" value={providerCycleKey} onChange={(event) => setProviderCycleKey(event.target.value)} placeholder="e.g. 2027-intake" />
+              <input ref={firstFieldRef} type="text" value={providerCycleKey} onChange={(event) => setProviderCycleKey(event.target.value)} placeholder="e.g. 2027-intake" />
             </label>
             <label className="admin-field">
               <span>Applicant segment</span>
@@ -170,8 +169,9 @@ export function PublishCycleModal({ scholarshipId, scholarshipName, officialHome
                 {MONTHS.map((month, index) => <option key={month} value={index + 1}>{month}</option>)}
               </select>
             </label>
-            <label className="admin-field">
-              <input type="checkbox" checked={evidenceFresh} onChange={(event) => setEvidenceFresh(event.target.checked)} /> Evidence is current as of today
+            <label className="admin-field admin-field-checkbox">
+              <input type="checkbox" checked={evidenceFresh} onChange={(event) => setEvidenceFresh(event.target.checked)} />
+              <span>Evidence is current as of today</span>
             </label>
           </div>
         </section>
@@ -260,16 +260,24 @@ export function PublishCycleModal({ scholarshipId, scholarshipName, officialHome
           <span>Eligibility note (optional)</span>
           <textarea value={eligibilityNote} onChange={(event) => setEligibilityNote(event.target.value)} rows={3} />
         </label>
+      </PanelBody>
+    </>
+  )
+}
 
-        {error ? <p className="admin-auth-error" role="alert">{error}</p> : null}
+type PublishCycleDrawerProps = Omit<PublishCycleFormProps, 'heading' | 'firstFieldRef' | 'onCancel'> & {
+  scholarshipName: string
+  onClose: () => void
+}
 
-        <div className="admin-modal-actions">
-          <button type="button" onClick={onClose} disabled={submitting}>Cancel</button>
-          <button type="button" className="admin-auth-submit" onClick={submit} disabled={!canSubmit || submitting}>
-            {submitting ? 'Publishing…' : 'Publish'}
-          </button>
-        </div>
-      </div>
-    </dialog>
+/** Publishing on its own, for the "publish now" prompt after an approval -
+ * there is no scholarship panel open in that flow to host the form. */
+export function PublishCycleDrawer({ scholarshipName, onClose, ...formProps }: PublishCycleDrawerProps) {
+  const providerCycleKeyRef = useRef<HTMLInputElement>(null)
+
+  return (
+    <Drawer title={`Publish a cycle for ${scholarshipName}`} wide initialFocusRef={providerCycleKeyRef} onClose={onClose}>
+      <PublishCycleForm {...formProps} firstFieldRef={providerCycleKeyRef} onCancel={onClose} />
+    </Drawer>
   )
 }
