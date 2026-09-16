@@ -331,6 +331,16 @@
   font-size: 1rem;
 }
 
+.admin-panel-note {
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid #c9ddff;
+  border-radius: var(--radius-sm);
+  background: #edf4ff;
+  color: #235696;
+  font-size: 0.85rem;
+}
+
 .admin-drawer:focus-visible {
   outline: 2px solid var(--color-brand-blue);
   outline-offset: -2px;
@@ -746,6 +756,12 @@
 .admin-hint {
   color: var(--color-brand-muted);
   font-size: 0.8rem;
+}
+
+/* Blocks submission rather than merely advising, so it reads as an error. */
+.admin-hint-warning {
+  color: #b3261e;
+  font-weight: 600;
 }
 
 /* Matches the visual weight of the <span> inside .admin-field labels, for the

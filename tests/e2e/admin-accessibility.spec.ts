@@ -54,7 +54,20 @@ const scholarship = {
     applicant_segment: 'default', official_cycle_url: 'https://example.edu/apply',
     public_status: 'open_verified', evaluated_public_status: 'open_verified',
     status_valid_until: null, last_verified_at: '2026-09-12T00:00:00Z',
-    facts: {}, is_auto_approved: false, auto_approval_score: null,
+    // Shaped like a real published cycle: everything entered at publish time
+    // comes back as taxonomy codes, which is what the panel has to resolve.
+    facts: {
+      destinations: ['GB'],
+      levels: ['masters', 'doctorate'],
+      origin_mode: 'restricted', origins: ['NG', 'GH'],
+      field_mode: 'all', fields: [],
+      funding_type: 'fully_funded',
+      deadline_at: '2027-03-15T00:00:00+00:00', deadline_precision: 'date',
+      evidence_fresh: true, expected_reopen_month: 10,
+      eligibility_note: 'Open to international students only.',
+      programme_names: [],
+    },
+    is_auto_approved: false, auto_approval_score: null,
   }],
 }
 
@@ -66,7 +79,9 @@ const scholarshipVariants = [
   {
     ...scholarship,
     scholarship_id: '66666666-6666-6666-6666-666666666666', name: 'Reopening Award', lifecycle_state: 'needs_review',
-    cycles: [{ ...scholarship.cycles[0], cycle_id: '77777777-7777-7777-7777-777777777777', public_status: 'expected_to_reopen', evaluated_public_status: 'expected_to_reopen' }],
+    // Published as open, since re-evaluated against its deadline - the drift
+    // a reviewer opens the panel to find.
+    cycles: [{ ...scholarship.cycles[0], cycle_id: '77777777-7777-7777-7777-777777777777', public_status: 'open_verified', evaluated_public_status: 'expected_to_reopen' }],
   },
   {
     ...scholarship,
@@ -245,6 +260,84 @@ test.describe('admin accessibility', () => {
     expect(tableBox!.x + tableBox!.width).toBeLessThanOrEqual(panelBox!.x + 1)
   })
 
+  test('the panel shows what was actually published, as labels not codes', async ({ page }) => {
+    await page.goto('/admin/scholarships')
+    await page.getByRole('button', { name: 'Example Award' }).click()
+    const detail = page.locator('.admin-cycle-detail')
+    await expect(detail).toBeVisible()
+
+    // Everything entered at publish time, resolved through the taxonomy.
+    await expect(detail).toContainText('United Kingdom')
+    await expect(detail).toContainText("Master's, Doctorate")
+    await expect(detail).toContainText('Nigeria, Ghana')
+    await expect(detail).toContainText('All fields')
+    await expect(detail).toContainText('Fully funded')
+    await expect(detail).toContainText('October')
+    await expect(detail).toContainText('Open to international students only.')
+    await expect(detail).toContainText('Marked current at publish')
+
+    // Raw codes are what a reviewer cannot check against a source page.
+    const text = (await detail.textContent()) ?? ''
+    for (const code of ['fully_funded', 'expected_reopen_month', 'origin_mode', 'evidence_fresh']) {
+      expect(text).not.toContain(code)
+    }
+  })
+
+  test('the panel flags a cycle whose live status has drifted from what was published', async ({ page }) => {
+    await page.goto('/admin/scholarships')
+    await page.getByRole('button', { name: 'Reopening Award' }).click()
+    await expect(page.locator('.admin-cycle-detail')).toContainText('open verified (now showing as expected to reopen)')
+
+    // Close first: below the breakpoint the panel covers the list, so the next
+    // row is not clickable underneath it.
+    await page.keyboard.press('Escape')
+    await expect(page.locator('.admin-drawer')).toHaveCount(0)
+
+    // The unchanged case should not claim a drift.
+    await page.getByRole('button', { name: 'Example Award' }).click()
+    await expect(page.locator('.admin-cycle-detail')).not.toContainText('now showing as')
+  })
+
+  test('publishing carries the last cycle forward instead of starting blank', async ({ page }) => {
+    await page.goto('/admin/scholarships')
+    await page.getByRole('button', { name: 'Example Award' }).click()
+    await page.getByRole('button', { name: 'Publish cycle' }).click()
+
+    const panel = page.locator('.admin-drawer')
+    await expect(panel.getByLabel('Applicant segment')).toHaveValue('default')
+    await expect(panel.getByLabel('Official cycle URL')).toHaveValue('https://example.edu/apply')
+    await expect(panel.getByLabel('Public status')).toHaveValue('open_verified')
+    await expect(panel.getByLabel('Expected reopen month (optional)')).toHaveValue('10')
+    await expect(panel.getByLabel('Eligibility note (optional)')).toHaveValue('Open to international students only.')
+    await expect(panel.locator('.admin-multiselect').first()).toContainText('United Kingdom')
+    await expect(panel.getByLabel('Applicant origin restriction')).toHaveValue('restricted')
+    await expect(panel).toContainText('Nigeria')
+
+    // The freshness claims are not inherited: nobody has re-checked yet.
+    await expect(panel.getByLabel('Last verified at (optional)')).toHaveValue('')
+    await expect(panel.getByLabel('Evidence is current as of today')).not.toBeChecked()
+    await expect(panel.locator('.admin-panel-note')).toContainText('2027-intake')
+  })
+
+  test('the carried-over cycle key is shown but must be changed before publishing', async ({ page }) => {
+    await page.goto('/admin/scholarships')
+    await page.getByRole('button', { name: 'Example Award' }).click()
+    await page.getByRole('button', { name: 'Publish cycle' }).click()
+    const panel = page.locator('.admin-drawer')
+    const key = panel.getByLabel('Provider cycle key')
+
+    // Shown, so the reviewer can see what the last cycle was called...
+    await expect(key).toHaveValue('2027-intake')
+    // ...but a reused key is a 409 from the backend, so it is caught here.
+    await expect(key).toHaveAttribute('aria-invalid', 'true')
+    await expect(panel.getByText('a cycle cannot reuse one')).toBeVisible()
+    await expect(panel.getByRole('button', { name: 'Publish' })).toBeDisabled()
+
+    await key.fill('2028-intake')
+    await expect(key).not.toHaveAttribute('aria-invalid', 'true')
+    await expect(panel.getByText('a cycle cannot reuse one')).toHaveCount(0)
+  })
+
   test('a withdrawn scholarship shows no actions at all', async ({ page }) => {
     await page.goto('/admin/scholarships')
     await page.getByRole('button', { name: 'Pulled Award' }).click()
@@ -357,7 +450,7 @@ test.describe('admin accessibility', () => {
   test('scholarship panel has no serious a11y violations in either mode', async ({ page }) => {
     await page.goto('/admin/scholarships')
     await page.getByRole('button', { name: 'Example Award' }).click()
-    await expect(page.locator('.admin-detail-list')).toBeVisible()
+    await expect(page.locator('.admin-detail-list').first()).toBeVisible()
     await expectNoSeriousViolations(page)
 
     await page.getByRole('button', { name: 'Publish cycle' }).click()
