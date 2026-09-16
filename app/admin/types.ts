@@ -136,6 +136,11 @@ export type PublishCycleRequest = {
   funding_type?: string | null
 }
 
+/** A correction to a live cycle. Every field optional and only what is sent
+ *  is changed, matching PATCH on the backend - an explicit null clears a
+ *  nullable field, while leaving the key out entirely leaves it alone. */
+export type UpdateCycleRequest = Partial<PublishCycleRequest>
+
 export type PublishCycleResponse = {
   scholarship_id: string
   cycle_id: string

@@ -243,6 +243,13 @@ export function ScholarshipsTable({ reviewerName }: { reviewerName: string }) {
             setActiveScholarship(null)
             loadPage(filters, 0)
           }}
+          onUpdated={() => {
+            // Reload rather than patch locally: the correction is normalised
+            // server-side (codes sorted, derived labels rebuilt), so refetching
+            // is what shows the reviewer what was actually stored.
+            setActiveScholarship(null)
+            loadPage(filters, 0)
+          }}
           onWithdrawn={(scholarshipId, result) => {
             replaceScholarship(scholarshipId, (current) => ({ ...current, lifecycle_state: result.lifecycle_state }))
             setActiveScholarship(null)
