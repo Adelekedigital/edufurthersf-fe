@@ -612,6 +612,11 @@
   color: #5f656d;
 }
 
+/* blue-500 links are 4.45:1 on this tint; the design system's blue-600 (hover) clears AA. */
+.admin-table tbody tr.admin-row-active .admin-link-button {
+  color: #005be8;
+}
+
 .admin-detail-list {
   margin: 0;
   display: grid;
